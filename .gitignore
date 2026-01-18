@@ -1,0 +1,8 @@
+# 화이트 리스트로 관리
+*
+
+!.claude/
+!.claude/**
+
+!.gitignore
+!README.md
