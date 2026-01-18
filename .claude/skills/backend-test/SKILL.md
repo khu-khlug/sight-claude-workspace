@@ -61,7 +61,12 @@ fun `사용자가 존재하지 않으면 NotFoundException을 던진다`() {
 }
 ```
 
+## 테스트 범위
+
+- **Service 테스트**: 작성 (비즈니스 로직 검증)
+- **Controller 테스트**: 작성하지 않음 (Controller는 단순 위임만 하므로 Service 테스트로 충분)
+
 ## 역할 범위
 
-- **O**: Service 테스트, Controller 테스트 작성
-- **X**: 프로덕션 코드 작성 (별도 skill 사용)
+- **O**: Service 테스트 작성
+- **X**: Controller 테스트 작성, 프로덕션 코드 작성 (별도 skill 사용)

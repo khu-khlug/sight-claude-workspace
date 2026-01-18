@@ -37,6 +37,11 @@ Spring Boot + Kotlin 기반 백엔드 코드를 작성합니다. CLAUDE.md 컨�
 - 클래스 레벨 `@RequestMapping` 사용 금지
 - 각 메서드에 전체 경로 직접 지정
 
+### 5. 트랜잭션 규칙
+- 조회 메서드: `@Transactional(readOnly = true)` 사용
+- 변경 메서드: `@Transactional` 사용
+- Controller에서 트랜잭션 사용 금지
+
 ## 예시
 
 ```kotlin
