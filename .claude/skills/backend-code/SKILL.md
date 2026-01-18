@@ -10,11 +10,17 @@ Spring Boot + Kotlin 기반 백엔드 코드를 작성합니다. CLAUDE.md 컨�
 ## Instructions
 
 ### 1. 계층 구조 준수
-```
-controllers → service → domain
-     ↓
- repository
-```
+
+**허용되는 의존성:**
+- Controller → Service (O)
+- Service → Repository (O)
+- Service → Domain (O)
+- Repository → Domain/Entity (O)
+
+**금지되는 의존성:**
+- Controller → Repository 직접 호출 (X)
+- Controller → Domain 직접 호출 (X)
+- Domain → 다른 계층 의존 (X)
 
 ### 2. 각 계층의 책임
 - **Controller**: DTO validation, 응답 DTO 생성만. 비즈니스 로직 금지
