@@ -8,4 +8,5 @@
 !knowledge/**
 
 !.gitignore
+!CLAUDE.md
 !README.md
