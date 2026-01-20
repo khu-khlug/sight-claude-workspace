@@ -4,5 +4,8 @@
 !.claude/
 !.claude/**
 
+!knowledge
+!knowledge/**
+
 !.gitignore
 !README.md
