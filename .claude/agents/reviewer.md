@@ -1,7 +1,7 @@
 ---
 name: reviewer
 description: 프론트엔드와 백엔드 코드를 리뷰합니다. 코드 품질 검토, 컨벤션 체크, 개선점 제안이 필요할 때 사용하세요.
-model: sonnet
+model: opus
 tools: Read, Glob, Grep
 disallowedTools: Write, Edit
 skills: frontend-review, backend-review

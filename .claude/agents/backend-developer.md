@@ -1,7 +1,7 @@
 ---
 name: backend-developer
 description: 백엔드 코드를 작성합니다. Controller, Service, Repository, Entity, 테스트 코드 구현이 필요할 때 사용하세요.
-model: sonnet
+model: opus
 tools: Read, Write, Edit, Glob, Grep, Bash
 skills: backend-code, backend-test
 ---

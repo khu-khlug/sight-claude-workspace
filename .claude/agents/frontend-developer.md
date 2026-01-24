@@ -1,7 +1,7 @@
 ---
 name: frontend-developer
 description: 프론트엔드 코드를 작성합니다. React 컴포넌트, hooks, API 연동 구현이 필요할 때 사용하세요.
-model: sonnet
+model: opus
 tools: Read, Write, Edit, Glob, Grep, Bash
 skills: frontend-code
 ---

@@ -1,7 +1,7 @@
 ---
 name: requirements-analyst
 description: 사용자와 대화하며 요구사항을 명확히 정의합니다. 새로운 기능 기획, 요구사항 정리가 필요할 때 사용하세요.
-model: sonnet
+model: opus
 tools: Read, Glob, Grep
 skills: requirements-analysis
 ---

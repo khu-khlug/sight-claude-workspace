@@ -1,7 +1,7 @@
 ---
 name: architect
 description: API 엔드포인트와 DB 스키마를 설계합니다. 요구사항이 정리된 후 구현 전 설계가 필요할 때 사용하세요.
-model: sonnet
+model: opus
 tools: Read, Glob, Grep
 skills: api-design, db-schema-design
 ---
