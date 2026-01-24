@@ -5,55 +5,41 @@ description: 백엔드 코드를 작성합니다. Controller, Service, Repositor
 
 # Backend 코드 작성
 
-Spring Boot + Kotlin 기반 백엔드 코드를 작성합니다. CLAUDE.md 컨벤션을 따릅니다.
+Spring Boot + Kotlin 기반 백엔드 코드를 작성합니다.
 
-## Instructions
+## 원칙 참조
 
-### 1. 계층 구조 준수
+코드 작성 전 `knowledge/backend/principles.md`를 참조합니다.
 
-**허용되는 의존성:**
-- Controller → Service (O)
-- Service → Repository (O)
-- Service → Domain (O)
-- Repository → Domain/Entity (O)
+주요 섹션:
+- 계층 아키텍처
+- 네이밍 규칙
+- API 경로 규칙
+- 트랜잭션 규칙
+- Entity 원칙
+- 예외 처리 규칙
+- 캐싱 규칙
 
-**금지되는 의존성:**
-- Controller → Repository 직접 호출 (X)
-- Controller → Domain 직접 호출 (X)
-- Domain → 다른 계층 의존 (X)
+## 워크플로우
 
-### 2. 각 계층의 책임
-- **Controller**: DTO validation, 응답 DTO 생성만. 비즈니스 로직 금지
-- **Service**: 모든 비즈니스 로직 담당
-- **Domain**: 순수 함수, side-effect 없음
-- **Repository**: 데이터 접근만
-
-### 3. 네이밍 규칙
-- DTO: `List/Get/Create/Update/Delete{리소스}Request/Response`
-- Service 메서드: `list/get/create/update/delete{리소스}`
-- 에러 메시지: 한국어로 작성
-
-### 4. API 경로 규칙
-- 클래스 레벨 `@RequestMapping` 사용 금지
-- 각 메서드에 전체 경로 직접 지정
-
-### 5. 트랜잭션 규칙
-- 조회 메서드: `@Transactional(readOnly = true)` 사용
-- 변경 메서드: `@Transactional` 사용
-- Controller에서 트랜잭션 사용 금지
+1. 요구사항 확인
+2. `knowledge/backend/principles.md` 참조
+3. 원칙에 따라 코드 작성
+4. ktlint 포맷팅 적용
 
 ## 예시
 
 ```kotlin
 // Controller
-@GetMapping("/users/{id}")
+@GetMapping("/api/users/{id}")
 fun getUser(@PathVariable id: Long): GetUserResponse {
-    val user = userService.getUserById(id)
+    val user = userService.getUser(id)
     return GetUserResponse.from(user)
 }
 
 // Service
-fun getUserById(id: Long): User {
+@Transactional(readOnly = true)
+fun getUser(id: Long): User {
     return userRepository.findById(id)
         .orElseThrow { NotFoundException("사용자를 찾을 수 없습니다") }
 }
@@ -62,4 +48,4 @@ fun getUserById(id: Long): User {
 ## 역할 범위
 
 - **O**: Controller, Service, Repository, Entity, DTO 코드 작성
-- **X**: 테스트 코드 작성, 코드 리뷰 (별도 skill 사용)
+- **X**: 테스트 코드 작성 (backend-test 사용), 코드 리뷰 (backend-review 사용)

@@ -3,6 +3,7 @@
 
 !.claude/
 !.claude/**
+.claude/settings.local.json
 
 !knowledge
 !knowledge/**
