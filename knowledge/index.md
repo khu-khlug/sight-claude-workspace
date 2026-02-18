@@ -6,6 +6,7 @@
 
 - `backend/principles.md`: 개발 원칙 (계층 아키텍처, 네이밍, 트랜잭션, Entity, 예외 처리, 캐싱)
 - `backend/features/system-config.md`: SystemConfig 기능 (시스템 설정 관리)
+- `backend/features/notification.md`: Notification 기능 (알림 발송 및 관리)
 
 ## 프론트엔드
 

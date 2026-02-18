@@ -6,38 +6,40 @@
 
 ### 디렉토리 구조
 
-- 도메인별로 디렉토리 구성: `src/api/{domain}/`
-- 각 도메인은 `types.ts`, `index.ts`, 필요 시 `mock.ts` 포함
+**접근 권한에 따른 분류:**
+- `src/api/manage/` - 운영진만 사용하는 API
+- `src/api/public/` - 운영진과 일반 회원 모두 사용하는 API
+
+**파일 분류 기준:**
+- REST API 리소스 기준으로 파일 분류 (페이지 기준 X)
+- 예: `notification.ts`, `group.ts`, `schedule.ts`, `board.ts`
+- 각 파일에 해당 리소스의 DTO 타입과 API 함수를 함께 정의
 
 ### 파일 구성
 
-**types.ts**
-- 모든 API 요청/응답 타입 정의
-- DTO 타입들을 내보내는 combined type 정의 (예: `MainApiDto`)
+**리소스별 단일 파일 (예: `notification.ts`, `group.ts`)**
+- 해당 리소스의 DTO 타입 정의 (접미사 `Dto` 사용: `NotificationDto`, `ListNotificationsResponseDto`)
+- DTO 타입들을 내보내는 combined type 정의 (예: `NotificationPublicApiDto`)
 - enum 타입은 대문자 snake case 값 사용
-
-**index.ts**
-- API 함수들을 객체로 묶어서 내보냄 (예: `MainApi`, `UserPublicApi`)
+- API 함수들을 객체로 묶어서 내보냄 (예: `NotificationPublicApi`, `GroupManageApi`)
 - 함수는 async로 정의하고 타입을 명시적으로 반환
 - 주석으로 함수 역할과 파라미터 설명 추가
-- Mock 구현 시 실제 API 호출 코드를 주석으로 남김
-
-**mock.ts (선택)**
-- Mock 데이터를 별도 파일로 분리
-- 실제 API 응답 형태와 동일한 구조로 작성
+- Mock 구현 시 실제 API 호출 코드를 주석으로 남기고, mock 데이터는 같은 파일에 정의
 
 ### 네이밍 규칙
 
-- Response DTO: `{Action}{Entity}Response` (예: `ListNotificationsResponse`)
-- Request DTO: `{Action}{Entity}Request` (예: `CreateGroupRequest`)
-- API 함수: camelCase 동사로 시작 (예: `getNotifications`, `createGroup`)
-- API 객체: `{Domain}Api` (예: `MainApi`, `GroupManageApi`)
+- Entity DTO: `{Entity}Dto` (예: `NotificationDto`, `ScheduleDto`)
+- Response DTO: `{Action}{Entity}ResponseDto` (예: `ListNotificationsResponseDto`)
+- Request DTO: `{Action}{Entity}RequestDto` (예: `CreateGroupRequestDto`)
+- API 함수: camelCase 동사로 시작 (예: `listNotifications`, `createGroup`)
+- API 객체: `{Resource}{Access}Api` (예: `NotificationPublicApi`, `GroupManageApi`)
 
 ### Mock 구현
 
 - 실제 API 구현 전에는 mock 데이터 반환
-- 300ms delay 추가로 로딩 상태 테스트 가능
+- 300ms delay 추가로 로딩 상태 테스트 가능 (`VITE_MOCK_DELAY_MS` 환경변수로 조절)
 - 실제 API 호출 코드는 주석으로 보존
+- mock 데이터는 해당 API 파일 내에 정의 (별도 파일 불필요)
 
 ### 클라이언트 사용
 
