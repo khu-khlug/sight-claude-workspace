@@ -43,6 +43,7 @@ src/
 1. 요구사항 확인
 2. `knowledge/frontend/principles.md` 참조
 3. 원칙에 따라 코드 작성
+4. 수정으로 인해 더 이상 사용되지 않는 코드 제거
 
 ## 예시
 

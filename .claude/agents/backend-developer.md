@@ -17,6 +17,7 @@ skills: backend-code, backend-test
 3. 코드 작성 (Entity → Repository → Service → Controller 순서)
 4. Service 테스트 작성
 5. 빌드 및 테스트 통과 확인
+6. 수정으로 인해 더 이상 사용되지 않는 코드 제거
 
 ## 역할 범위
 

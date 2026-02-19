@@ -26,6 +26,7 @@ Spring Boot + Kotlin 기반 백엔드 코드를 작성합니다.
 2. `knowledge/backend/principles.md` 참조
 3. 원칙에 따라 코드 작성
 4. ktlint 포맷팅 적용
+5. 수정으로 인해 더 이상 사용되지 않는 코드 제거
 
 ## 예시
 
