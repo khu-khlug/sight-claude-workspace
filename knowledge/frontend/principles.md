@@ -169,3 +169,134 @@
 
 - 각 섹션은 `Container` 컴포넌트로 감싸기
 - 제목은 `fontWeight="bold"` + `marginBottom="16px"`
+
+---
+
+## 5. 관리자 목록+상세 UI 패턴
+
+### 레이아웃
+
+- 목록: `<table>` 마크업 사용 (탐색 효율)
+- 상세: 우측 Drawer (Chakra UI v3 `placement="end"`)
+- 목록에서 행 클릭 → Drawer 열림
+
+### Chakra UI v3 Drawer 사용
+
+```tsx
+<Drawer.Root placement="end" size="sm" open={isOpen} onOpenChange={({ open }) => !open && onClose()}>
+  <Portal>
+    <Drawer.Backdrop />
+    <Drawer.Positioner>
+      <Drawer.Content>
+        <Drawer.Header>...</Drawer.Header>
+        <Drawer.Body>...</Drawer.Body>
+        <Drawer.Footer>...</Drawer.Footer>
+      </Drawer.Content>
+    </Drawer.Positioner>
+  </Portal>
+</Drawer.Root>
+```
+
+- 모바일에서 Drawer가 꽉 차면 backdrop 클릭 불가 → Header에 X 버튼 명시 필수
+- `<Drawer.CloseTrigger asChild>` + 커스텀 버튼으로 구현
+- Drawer 닫힐 때 선택된 항목(`selectedUser`)을 즉시 null로 초기화하지 않음 → 닫힘 애니메이션 중 내용 깜빡임 방지
+
+### 상태 관리
+
+```typescript
+const [selectedUser, setSelectedUser] = useState<User | null>(null);
+const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+const handleSelectUser = (user: User) => {
+  setSelectedUser(user);
+  setIsDrawerOpen(true);
+};
+
+const handleCloseDrawer = () => {
+  setIsDrawerOpen(false);
+  // selectedUser는 즉시 null화하지 않음
+};
+```
+
+---
+
+## 6. 반응형 표 (Table → Card 전환)
+
+CSS만으로 `<table>` 마크업을 모바일에서 카드형으로 전환하는 패턴.
+
+### 핵심 CSS
+
+```css
+/* MemberTable/style.module.css */
+@media (max-width: 768px) {
+  .table thead { display: none; }
+  .table td { border-bottom: none; padding: 2px 0; }
+}
+
+/* MemberTableRow/style.module.css */
+@media (max-width: 768px) {
+  .row {
+    display: block;
+    position: relative;
+    padding: 10px 32px 10px 8px; /* 우측 공간은 아이콘 버튼용 */
+    border-bottom: 1px solid #eee;
+  }
+  .row:last-child { border-bottom: none; }
+  .row td { display: block; padding: 2px 0; }
+
+  /* 인라인으로 묶을 셀 */
+  .row td:nth-child(2),
+  .row td:nth-child(3) { display: inline; }
+
+  /* 우측 상단 고정 버튼 */
+  .row td:last-child { position: absolute; top: 10px; right: 0; }
+}
+```
+
+### 주의사항
+
+- `data-label` + `::before { content: attr(data-label) }` 로 라벨 표시 가능하나 불필요 시 제거
+- 모바일에서 hover 효과 제거: `.row:hover { background-color: transparent; }`
+- 아이콘 버튼(ChevronRight 등)은 desktop에서 `display: none`, mobile에서 `display: block`
+
+---
+
+## 7. CSS 관련 주의사항
+
+### CSS Modules 간 cascade 충돌
+
+CSS Modules는 같은 specificity일 때 **stylesheet 로드 순서**로 우선순위가 결정됨. 부모 컴포넌트의 CSS가 자식 컴포넌트의 CSS보다 나중에 로드되면 덮어쓸 수 있음.
+
+- 예: `MemberTable/style.module.css`의 `.table td { padding: 12px }`가 `MemberTableRow/style.module.css`의 `.row td { padding: 0 }`을 이길 수 있음
+- **해결책**: 동일한 요소에 대한 스타일은 가능하면 한 파일에서 관리. 미디어 쿼리 override는 원래 스타일이 있는 파일에 작성
+
+### `border-collapse: separate`에서 `tr` border 불가
+
+CSS 스펙상 `border-collapse: separate` 상태에서는 `tr`에 `border`를 지정해도 렌더링되지 않음. `td` / `th`에만 적용해야 함. `tr`에 border를 쓰려면 `border-collapse: collapse`로 변경 필요.
+
+---
+
+## 8. 공유 코드 레벨 결정 기준
+
+### 컴포넌트 vs 공유 CSS
+
+- 자체 로직/상태가 없고 단순 스타일 래퍼 수준 → **공유 CSS 파일** (`badge.module.css` 등)
+- 렌더링 로직이 반복되는 경우 → **컴포넌트** 분리
+
+### 컴포넌트 배치 레벨
+
+- **페이지 레벨** (`features/xxx/ComponentName/`): 현재 해당 feature 내에서만 사용되거나, 도메인 특화 데이터 구조에 묶인 경우
+- **전역 공용** (`components/ComponentName/`): 여러 feature에서 실제로 재사용되는 경우
+
+**원칙**: 현재 사용처 기반으로 결정. 실제 재사용 근거 없이 공용으로 올리지 않음 (YAGNI). 다른 feature에서 사용이 생기는 시점에 승격.
+
+### 공유 상수/타입 파일
+
+feature 내 여러 컴포넌트가 동일한 타입/상수를 사용할 때 feature 루트에 `types.ts` 또는 `constants.ts`로 추출:
+
+```
+MemberListContainer/
+  types.ts         ← SearchType, StudentStatusLabel
+  badge.module.css ← 공유 배지 스타일
+  TagList/         ← 페이지 레벨 공유 컴포넌트
+```

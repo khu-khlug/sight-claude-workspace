@@ -218,3 +218,108 @@ fun put(key: Key, value: Value) {
 - 설정 값 등 자주 변경되지 않는 데이터: 1분 ~ 5분
 - 자주 조회되는 마스터 데이터: 5분 ~ 30분
 - 실시간성이 중요한 데이터: 캐싱 지양 또는 짧은 TTL
+
+---
+
+## 8. 시간 처리 원칙
+
+### 기본 타입: `Instant`
+
+시각을 나타내는 필드는 `Instant`를 기본 타입으로 사용합니다. `LocalDateTime`은 타임존 정보가 없어 저장/비교 시 의도치 않은 동작이 생길 수 있습니다.
+
+```kotlin
+// Entity 필드
+@Column(name = "last_login", nullable = false)
+val lastLogin: Instant = Instant.now()
+
+// 저장
+member.copy(lastLogin = Instant.now())
+```
+
+### DB 저장: UTC
+
+DB에는 항상 UTC 기준으로 저장합니다. `Instant`를 그대로 JPA에 매핑하면 Hibernate가 UTC로 처리합니다.
+
+### 타임존 적용: 필요할 때만
+
+`ZoneId`는 아래 두 경우에만 붙입니다.
+
+**날짜 비교 (KST 기준):**
+
+```kotlin
+val kst = ZoneId.of("Asia/Seoul")
+val nowKst = Instant.now().atZone(kst)
+val lastLoginKst = member.lastLogin.atZone(kst)
+val isFirstEnterToday = lastLoginKst.toLocalDate() != nowKst.toLocalDate()
+```
+
+**포맷된 문자열 출력 (KST 기준):**
+
+```kotlin
+val nowKst = Instant.now().atZone(ZoneId.of("Asia/Seoul"))
+val message = "${nowKst.year}년 ${nowKst.monthValue}월 ${nowKst.dayOfMonth}일"
+```
+
+### DB 타임존: KST
+
+레거시 DB 서버의 global timezone이 KST(+09:00)입니다. JDBC URL에 `forceConnectionTimeZoneToSession=true`를 설정하여 커넥션 세션 TZ를 UTC로 강제합니다. 이 옵션이 없으면 드라이버가 UTC 문자열로 포맷해서 보내도 MySQL이 KST로 해석해 9시간 이전 값으로 저장됩니다.
+
+```
+serverTimezone=UTC&forceConnectionTimeZoneToSession=true
+```
+
+### `LocalDateTime` 잔존 필드
+
+레거시 테이블의 기존 `LocalDateTime` 컬럼(`updatedAt`, `createdAt` 등)은 현재 그대로 유지합니다. 신규로 추가하는 시각 필드는 `Instant`를 사용합니다.
+
+---
+
+## 9. 레거시 서버 연동
+
+### Internal API 호출 패턴
+
+레거시 PHP 서버의 Internal API를 호출할 때 사용하는 패턴입니다.
+
+```kotlin
+@Service
+class SomeService(
+    private val restTemplate: RestTemplate,
+    @Value("\${auth.service.endpoint}") private val authServiceEndpoint: String,
+    @Value("\${auth.service.api-key}") private val authServiceApiKey: String,
+) {
+    private val logger = LoggerFactory.getLogger(SomeService::class.java)
+
+    fun callLegacyApi(request: SomeRequest) {
+        try {
+            val headers = HttpHeaders().apply {
+                set("Content-Type", "application/json")
+                set("x-api-key", authServiceApiKey)
+            }
+            val entity = HttpEntity(request, headers)
+
+            restTemplate.exchange(
+                "$authServiceEndpoint/internal/some-endpoint",
+                HttpMethod.POST,
+                entity,
+                Void::class.java,
+            )
+        } catch (e: RestClientException) {
+            logger.error("레거시 API 호출 실패: $request", e)
+        }
+    }
+}
+```
+
+### 주요 규칙
+
+| 항목 | 규칙 |
+|------|------|
+| 인증 | `x-api-key` 헤더에 API 키 설정 |
+| 엔드포인트 | `/internal/*` 경로 사용 |
+| 에러 처리 | 로그만 남기고 진행 (비핵심 기능인 경우) |
+| 설정 | `auth.service.endpoint`, `auth.service.api-key` 사용 |
+
+### 사용 예시
+
+- **포인트 지급**: `POST /internal/point` - `{message, point, targetUserId}`
+- **인증 확인**: `POST /internal/auth` - 쿠키 기반 인증

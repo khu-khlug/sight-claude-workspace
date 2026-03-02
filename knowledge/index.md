@@ -10,5 +10,5 @@
 
 ## 프론트엔드
 
-- `frontend/principles.md`: 개발 원칙 (API 구조, 레이아웃, 네비게이션, 리스트/카드 표시)
-- `frontend/policies.md`: 서비스 정책 (UI/UX 정책, 알림, 일정, 게시판 표시)
+- `frontend/principles.md`: 개발 원칙 (API 구조, 레이아웃, 네비게이션, 리스트/카드 표시, 관리자 UI 패턴, 반응형 표, CSS 주의사항, 공유 코드 기준)
+- `frontend/policies.md`: 서비스 정책 (UI/UX 정책, 알림, 일정, 관리자 회원 목록, 게시판 표시)
