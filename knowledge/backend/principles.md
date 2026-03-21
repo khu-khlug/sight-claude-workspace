@@ -66,6 +66,18 @@ throw NotFoundException("User not found")
 
 ## 3. API 경로 규칙
 
+### 컨트롤러 분리 규칙
+
+운영진 전용 API(`@Auth([UserRole.MANAGER])`)는 반드시 `*ManageController` 클래스에 작성합니다.
+
+```
+UserManageController  - 회원 관리 관련 운영진 API
+GroupManageController - 그룹 관리 관련 운영진 API
+...
+```
+
+일반 사용자 API는 기존처럼 `*Controller` 클래스에 작성합니다.
+
 ### 클래스 레벨 @RequestMapping 금지
 
 각 메서드에 전체 경로를 직접 지정합니다.
@@ -223,41 +235,43 @@ fun put(key: Key, value: Value) {
 
 ## 8. 시간 처리 원칙
 
-### 기본 타입: `Instant`
+### API 수신 타입
 
-시각을 나타내는 필드는 `Instant`를 기본 타입으로 사용합니다. `LocalDateTime`은 타임존 정보가 없어 저장/비교 시 의도치 않은 동작이 생길 수 있습니다.
+| 상황 | 타입 | 예시 값 |
+|------|------|---------|
+| 날짜만 필요한 경우 | `LocalDate` | `"2026-03-21"` |
+| 시간까지 필요한 경우 | `Instant` | `"2026-03-21T09:00:00Z"` |
+
+### 서버 내부: `Instant`만 사용
+
+Service 계층 이후 모든 시각 처리는 `Instant`를 사용합니다. `LocalDate`로 수신한 값은 Service에서 즉시 `Instant`로 변환합니다.
+
+### DB 저장: `Instant` 타입, UTC
+
+엔티티의 시각 필드는 `Instant`로 정의합니다. `Instant`를 JPA에 매핑하면 Hibernate가 UTC로 처리합니다.
 
 ```kotlin
-// Entity 필드
-@Column(name = "last_login", nullable = false)
-val lastLogin: Instant = Instant.now()
-
-// 저장
-member.copy(lastLogin = Instant.now())
+@Column(name = "closed_at", nullable = false)
+val closedAt: Instant
 ```
 
-### DB 저장: UTC
+### API 응답 직렬화
 
-DB에는 항상 UTC 기준으로 저장합니다. `Instant`를 그대로 JPA에 매핑하면 Hibernate가 UTC로 처리합니다.
+`application.yml`에 `write-dates-as-timestamps: false`가 설정되어 있으므로 `Instant`는 ISO 8601 UTC 문자열로 자동 직렬화됩니다.
 
-### 타임존 적용: 필요할 때만
+### `ZonedDateTime`: TZ가 실제로 필요한 경우에만
 
-`ZoneId`는 아래 두 경우에만 붙입니다.
-
-**날짜 비교 (KST 기준):**
+포맷된 문자열 출력, 특정 TZ 기준 자정 계산 등 타임존 연산이 실제로 필요한 경우에만 `ZonedDateTime`을 사용합니다.
 
 ```kotlin
-val kst = ZoneId.of("Asia/Seoul")
-val nowKst = Instant.now().atZone(kst)
-val lastLoginKst = member.lastLogin.atZone(kst)
-val isFirstEnterToday = lastLoginKst.toLocalDate() != nowKst.toLocalDate()
-```
+// KST 기준 날짜 비교
+val isFirstEnterToday = member.lastLogin.atZone(KST).toLocalDate() != Instant.now().atZone(KST).toLocalDate()
 
-**포맷된 문자열 출력 (KST 기준):**
+// KST 기준 자정 구하기
+val midnightKst = LocalDate.now(KST).plusDays(1).atStartOfDay(KST).toInstant()
 
-```kotlin
-val nowKst = Instant.now().atZone(ZoneId.of("Asia/Seoul"))
-val message = "${nowKst.year}년 ${nowKst.monthValue}월 ${nowKst.dayOfMonth}일"
+// KST 기준 포맷 출력
+val message = Instant.now().atZone(KST).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
 ```
 
 ### DB 타임존: KST

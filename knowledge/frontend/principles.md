@@ -276,7 +276,37 @@ CSS 스펙상 `border-collapse: separate` 상태에서는 `tr`에 `border`를 �
 
 ---
 
-## 8. 공유 코드 레벨 결정 기준
+## 8. 날짜/시간 API 전송 규칙
+
+### 시각 전송: UTC ISO 8601 (`Z` 접미사 필수)
+
+시각이 포함된 값은 반드시 UTC 기준 ISO 8601 포맷으로 전송합니다.
+
+```typescript
+// Good
+{ reservedAt: new Date(Date.UTC(2026, 2, 21, 9, 0, 0)).toISOString() }
+// → "2026-03-21T09:00:00.000Z"
+
+// Bad
+{ reservedAt: "2026-03-21T18:00:00" }  // TZ 없음
+{ reservedAt: "2026-03-21T18:00:00+09:00" }  // UTC 아님
+```
+
+### 날짜만 전송: `YYYY-MM-DD` 문자열
+
+날짜만 필요한 경우 `YYYY-MM-DD` 형식의 문자열을 그대로 전송합니다. `<input type="date">`의 값을 변환 없이 사용합니다.
+
+```typescript
+// Good
+{ closedAt: closedAt }  // "2026-03-21" (input type="date" 값 그대로)
+
+// Bad
+{ closedAt: new Date(closedAt).toISOString() }  // 날짜를 datetime으로 변환 금지
+```
+
+---
+
+## 9. 공유 코드 레벨 결정 기준
 
 ### 컴포넌트 vs 공유 CSS
 
