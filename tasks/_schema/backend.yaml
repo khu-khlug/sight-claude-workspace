@@ -1,0 +1,38 @@
+version: 1
+type: backend
+
+frontmatter:
+  additionalFields: false
+  fields:
+    - name: type
+      type: string
+      required: true
+      const: backend
+
+sections:
+  - name: 작업 개요
+    required: true
+  - name: 비즈니스 동작
+    required: true
+  - name: HTTP API 계약
+    required: true
+  - name: 데이터베이스 계약
+    required: true
+  - name: 외부 시스템 계약
+    required: true
+  - name: 보안 및 개인정보
+    required: true
+  - name: 비가역적 부작용 및 운영 영향
+    required: true
+  - name: 호환성 및 배포
+    required: true
+  - name: 검증
+    required: true
+  - name: 사람의 결정 필요
+    required: true
+  - name: 구현자 재량
+    required: true
+  - name: 비목표
+    required: true
+
+additionalSections: true

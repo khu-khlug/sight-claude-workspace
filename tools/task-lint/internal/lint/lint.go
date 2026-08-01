@@ -19,19 +19,13 @@ func (e Error) String() string {
 	return fmt.Sprintf("%s:%d: %s", filepath.ToSlash(e.Path), e.Line, e.Message)
 }
 
-type requiredSection struct {
-	Name string
-	Line int
-}
-
 func Run(repositoryRoot string) ([]Error, error) {
-	standardPath := filepath.Join(repositoryRoot, "tasks", "STANDARD.md")
-	required, standardErrors, err := loadRequiredSections(repositoryRoot, standardPath)
+	schemas, schemaErrors, err := loadSchemas(repositoryRoot)
 	if err != nil {
 		return nil, err
 	}
-	if len(standardErrors) > 0 {
-		return standardErrors, nil
+	if len(schemaErrors) > 0 {
+		return schemaErrors, nil
 	}
 
 	var paths []string
@@ -45,74 +39,65 @@ func Run(repositoryRoot string) ([]Error, error) {
 
 	var errors []Error
 	for _, path := range paths {
-		documentErrors, err := lintDocument(repositoryRoot, path, required)
+		relativePath, err := filepath.Rel(repositoryRoot, path)
+		if err != nil {
+			return nil, err
+		}
+		frontmatter, frontmatterErrors, err := parseFrontmatter(path)
+		if err != nil {
+			return nil, fmt.Errorf("read task document %s: %w", path, err)
+		}
+		for _, item := range frontmatterErrors {
+			errors = append(errors, Error{
+				Path:    relativePath,
+				Line:    item.Line,
+				Message: item.Message,
+			})
+		}
+		if len(frontmatterErrors) > 0 {
+			continue
+		}
+
+		typeValue, exists := frontmatter.Fields["type"]
+		if !exists || !nodeMatchesType(typeValue.Value, "string") ||
+			!isValidTaskType(typeValue.Value.Value) {
+			line := 1
+			if exists {
+				line = typeValue.Line
+			}
+			errors = append(errors, Error{
+				Path:    relativePath,
+				Line:    line,
+				Message: "frontmatter의 type은 소문자로 시작하고 소문자, 숫자, hyphen만 포함하는 단일 string 값이어야 합니다",
+			})
+			continue
+		}
+		taskType := typeValue.Value.Value
+		schema, exists := schemas[taskType]
+		if !exists {
+			errors = append(errors, Error{
+				Path: relativePath,
+				Line: typeValue.Line,
+				Message: fmt.Sprintf(
+					"type '%s'에 해당하는 tasks/_schema/%s.yaml이 없습니다",
+					taskType,
+					taskType,
+				),
+			})
+			continue
+		}
+
+		fieldErrors := lintFrontmatter(relativePath, frontmatter, schema.Frontmatter)
+		errors = append(errors, fieldErrors...)
+
+		documentErrors, err := lintDocument(repositoryRoot, path, schema)
 		if err != nil {
 			return nil, err
 		}
 		errors = append(errors, documentErrors...)
 	}
+	sortErrors(errors)
 	return errors, nil
-}
-
-func loadRequiredSections(
-	repositoryRoot string,
-	standardPath string,
-) ([]requiredSection, []Error, error) {
-	sections, definitionLines, err := parseRequiredSectionDefinitions(standardPath)
-	if err != nil {
-		return nil, nil, fmt.Errorf("read task standard: %w", err)
-	}
-
-	relativePath, err := filepath.Rel(repositoryRoot, standardPath)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if len(definitionLines) == 0 {
-		return nil, []Error{{
-			Path:    relativePath,
-			Line:    1,
-			Message: "'## 필수 섹션' heading이 없습니다",
-		}}, nil
-	}
-	if len(definitionLines) > 1 {
-		return nil, []Error{{
-			Path: relativePath,
-			Line: definitionLines[1],
-			Message: fmt.Sprintf(
-				"'## 필수 섹션' heading이 중복되었습니다 (첫 번째 위치: %d줄)",
-				definitionLines[0],
-			),
-		}}, nil
-	}
-	if len(sections) == 0 {
-		return nil, []Error{{
-			Path:    relativePath,
-			Line:    definitionLines[0],
-			Message: "'필수 섹션' 절에 번호가 붙은 '###' heading이 없습니다",
-		}}, nil
-	}
-
-	seen := make(map[string]int)
-	var required []requiredSection
-	var errors []Error
-	for _, item := range sections {
-		if firstLine, exists := seen[item.Name]; exists {
-			errors = append(errors, Error{
-				Path: relativePath,
-				Line: item.Line,
-				Message: fmt.Sprintf(
-					"필수 섹션 '%s'이 중복되었습니다 (첫 번째 위치: %d줄)",
-					item.Name,
-					firstLine,
-				),
-			})
-			continue
-		}
-		seen[item.Name] = item.Line
-		required = append(required, requiredSection{Name: item.Name, Line: item.Line})
-	}
-	return required, errors, nil
 }
 
 func collectMarkdownFiles(root string, paths *[]string) error {
@@ -139,7 +124,7 @@ func collectMarkdownFiles(root string, paths *[]string) error {
 func lintDocument(
 	repositoryRoot string,
 	path string,
-	required []requiredSection,
+	schema taskSchema,
 ) ([]Error, error) {
 	sections, err := parseSections(path)
 	if err != nil {
@@ -158,22 +143,26 @@ func lintDocument(
 
 	var errors []Error
 	positions := make(map[string]int)
-	for _, expected := range required {
+	declared := make(map[string]bool)
+	for _, expected := range schema.Sections {
+		declared[expected.Name] = true
 		matches := byName[expected.Name]
 		switch len(matches) {
 		case 0:
-			errors = append(errors, Error{
-				Path:    relativePath,
-				Line:    1,
-				Message: fmt.Sprintf("필수 섹션 '%s'이 없습니다", expected.Name),
-			})
+			if isRequired(expected.Required) {
+				errors = append(errors, Error{
+					Path:    relativePath,
+					Line:    1,
+					Message: fmt.Sprintf("필수 섹션 '%s'이 없습니다", expected.Name),
+				})
+			}
 		case 1:
 			positions[expected.Name] = matches[0].Line
 			if matches[0].Content == "" {
 				errors = append(errors, Error{
 					Path:    relativePath,
 					Line:    matches[0].Line,
-					Message: fmt.Sprintf("필수 섹션 '%s'의 내용이 비어 있습니다", expected.Name),
+					Message: fmt.Sprintf("섹션 '%s'의 내용이 비어 있습니다", expected.Name),
 				})
 			}
 		default:
@@ -182,7 +171,7 @@ func lintDocument(
 					Path: relativePath,
 					Line: duplicate.Line,
 					Message: fmt.Sprintf(
-						"필수 섹션 '%s'이 중복되었습니다 (첫 번째 위치: %d줄)",
+						"섹션 '%s'이 중복되었습니다 (첫 번째 위치: %d줄)",
 						expected.Name,
 						matches[0].Line,
 					),
@@ -190,10 +179,21 @@ func lintDocument(
 			}
 		}
 	}
+	if !allowsAdditional(schema.AdditionalSections) {
+		for _, item := range sections {
+			if !declared[item.Name] {
+				errors = append(errors, Error{
+					Path:    relativePath,
+					Line:    item.Line,
+					Message: fmt.Sprintf("schema에 정의되지 않은 섹션 '%s'입니다", item.Name),
+				})
+			}
+		}
+	}
 
 	lastLine := 0
 	lastName := ""
-	for _, expected := range required {
+	for _, expected := range schema.Sections {
 		line, exists := positions[expected.Name]
 		if !exists {
 			continue
@@ -203,7 +203,7 @@ func lintDocument(
 				Path: relativePath,
 				Line: line,
 				Message: fmt.Sprintf(
-					"필수 섹션 '%s'은 '%s' 뒤에 있어야 합니다",
+					"섹션 '%s'은 '%s' 뒤에 있어야 합니다",
 					expected.Name,
 					lastName,
 				),
@@ -215,11 +215,6 @@ func lintDocument(
 		}
 	}
 
-	sort.SliceStable(errors, func(i, j int) bool {
-		if errors[i].Path != errors[j].Path {
-			return errors[i].Path < errors[j].Path
-		}
-		return errors[i].Line < errors[j].Line
-	})
+	sortErrors(errors)
 	return errors, nil
 }

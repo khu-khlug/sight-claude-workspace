@@ -35,9 +35,10 @@ sight-workspace/
 
 ## Task 기반 작업 진행
 
-Task 문서는 구현 전에 `tasks/open/`에 작성하고 검토하는 것을 원칙으로 합니다. 현재 Task Standard는 백엔드 저장소에서 사용하던 정책을 그대로 이전한 것으로, 내부 구현 방법보다 HTTP API, database, 외부 시스템과의 계약, 사용자에게 관찰되는 비즈니스 동작, 보안 및 운영 영향을 작성합니다.
+Task 문서는 구현 전에 `tasks/open/`에 작성하고 검토하는 것을 원칙으로 합니다. 각 Task는 YAML frontmatter에 단일 `type`을 선언합니다. `tasks/_schema/{type}.yaml`은 필수·선택 입력을 정의하고, `tasks/_standard/{type}.md`는 각 입력의 작성 지침을 설명합니다. 현재 Backend Standard는 백엔드 저장소에서 사용하던 정책을 이전한 것으로, 내부 구현 방법보다 HTTP API, database, 외부 시스템과의 계약, 사용자에게 관찰되는 비즈니스 동작, 보안 및 운영 영향을 작성합니다.
 
-- 작성 원칙: [`tasks/STANDARD.md`](tasks/STANDARD.md)
+- Backend 작성 원칙: [`tasks/_standard/backend.md`](tasks/_standard/backend.md)
+- Backend 입력 schema: [`tasks/_schema/backend.yaml`](tasks/_schema/backend.yaml)
 - 진행 중인 Task: `tasks/open/`
 - 완료된 Task: `tasks/completed/`
 

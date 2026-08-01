@@ -17,9 +17,10 @@ Backend Task 문서는 작업으로 인해 달라지는 계약, 비즈니스 동
 
 ## 저장 위치와 상태
 
+- Backend Task 문서는 문서 시작의 YAML frontmatter에 `type: backend`를 단일 값으로 선언한다.
 - 완료되지 않은 Task 문서는 `tasks/open/`에 둔다.
 - 완료된 Task 문서는 `tasks/completed/`로 옮긴다.
-- 이 문서의 `필수 섹션` 절은 Task 문서의 필수 섹션과 순서를 정의한다.
+- `tasks/_schema/backend.yaml`은 Task 문서의 필수·선택 입력과 섹션 순서를 정의한다.
 
 ## 작성 원칙
 
@@ -63,9 +64,9 @@ HTTP field, database schema, configuration key, event field 등 계약에 포함
 
 사람의 결정이 필요한 사항은 `사람의 결정 필요` 섹션에 질문, 선택지, 영향, 권장안을 작성한다.
 
-## 필수 섹션
+## 입력 작성 지침
 
-모든 Task 문서는 아래 섹션을 같은 이름과 순서로 작성한다.
+Task 문서는 `tasks/_schema/backend.yaml`에 정의된 섹션을 같은 이름과 순서로 작성한다. 필수 여부는 YAML schema를 기준으로 한다.
 
 ### 1. 작업 개요
 
@@ -233,17 +234,19 @@ API마다 다음 내용을 작성한다.
 - 호환되지 않는 변경
 - 요구사항의 모호함
 
-## Task 문서, `rules/` 및 lint의 역할
+## Task 문서, schema, `rules/` 및 lint의 역할
 
 - Task 문서는 이번 작업의 계약, 비즈니스 의미와 승인 경계를 기록한다.
+- YAML schema는 type별 필수·선택 입력과 기계적으로 검증할 형식을 정의한다.
 - `rules/`는 여러 작업에 반복 적용할 구현 가드레일을 정의한다.
-- lint는 필수 내용의 존재와 문서 형식을 deterministic하게 검사한다.
+- lint는 YAML schema에 따라 필수 내용의 존재와 문서 형식을 deterministic하게 검사한다.
 - 사람은 계약, 비즈니스 의미와 결정을 검토한다.
 
 현재 lint는 `tasks/open/`과 `tasks/completed/` 아래의 모든 Markdown 문서에 대해 다음 내용을 검사한다. 그 밖의 `tasks/` 하위 디렉터리는 검사하지 않는다.
 
-- 이 문서의 `필수 섹션` 절에 정의된 모든 섹션이 정확히 한 번 존재한다.
-- 필수 섹션끼리의 상대적 순서가 같다.
-- 각 필수 섹션에 공백을 제외한 내용이 한 글자 이상 존재한다.
+- YAML frontmatter의 단일 `type`에 대응하는 `tasks/_schema/{type}.yaml`과 `tasks/_standard/{type}.md`가 존재한다.
+- schema에 정의된 모든 필수 입력이 존재한다.
+- 선택 입력은 생략할 수 있지만 작성하면 schema의 type과 순서를 따른다.
+- 작성된 schema section에 공백을 제외한 내용이 한 글자 이상 존재한다.
 
 추가 `##` 섹션은 허용한다.
