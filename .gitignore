@@ -5,6 +5,10 @@
 !.claude/**
 .claude/settings.local.json
 
+!.github/
+!.github/workflows/
+!.github/workflows/**
+
 !knowledge
 !knowledge/**
 
