@@ -11,6 +11,11 @@
 !tasks
 !tasks/**
 
+!tools
+!tools/task-lint
+!tools/task-lint/**
+tools/task-lint/bin/
+
 !.gitignore
 !AGENTS.md
 !CLAUDE.md

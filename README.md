@@ -20,6 +20,7 @@ sight-workspace/
 ├── sight-spring-backend/  # 백엔드 Git 저장소
 ├── sight-frontend/        # 프론트엔드 Git 저장소
 ├── tasks/                 # 통합 Task 문서
+├── tools/                 # 워크스페이스 관리 도구
 └── README.md
 ```
 
@@ -31,3 +32,19 @@ sight-workspace/
 - 저장소 전체에 적용되는 Task, 규칙, 정책 및 표준은 이 워크스페이스에서 관리합니다.
 - 각 코드 저장소에서 작업할 때는 해당 저장소의 고유한 지침도 함께 준수합니다.
 - 여러 저장소를 변경하는 작업은 하나의 통합 Task를 기준으로 추적하되, 구현과 검증은 저장소별로 수행합니다.
+
+## Task 기반 작업 진행
+
+Task 문서는 구현 전에 `tasks/open/`에 작성하고 검토하는 것을 원칙으로 합니다. 현재 Task Standard는 백엔드 저장소에서 사용하던 정책을 그대로 이전한 것으로, 내부 구현 방법보다 HTTP API, database, 외부 시스템과의 계약, 사용자에게 관찰되는 비즈니스 동작, 보안 및 운영 영향을 작성합니다.
+
+- 작성 원칙: [`tasks/STANDARD.md`](tasks/STANDARD.md)
+- 진행 중인 Task: `tasks/open/`
+- 완료된 Task: `tasks/completed/`
+
+Task 문서를 생성하거나 수정한 뒤에는 현재 OS와 architecture에 맞는 `tools/task-lint/bin/task-lint-*` binary로 필수 섹션과 내용을 검증해야 합니다. binary가 없거나 source와 일치하지 않으면 다음 명령으로 다시 build합니다.
+
+```bash
+docker buildx build --file tools/task-lint/Dockerfile --output type=local,dest=tools/task-lint/bin .
+```
+
+자세한 build 및 실행 방법은 [`tools/task-lint/README.md`](tools/task-lint/README.md)를 참고합니다.
