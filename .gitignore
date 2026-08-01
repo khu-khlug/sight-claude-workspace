@@ -5,11 +5,20 @@
 !.claude/**
 .claude/settings.local.json
 
+!.github/
+!.github/workflows/
+!.github/workflows/**
+
 !knowledge
 !knowledge/**
 
 !tasks
 !tasks/**
+
+!tools
+!tools/task-lint
+!tools/task-lint/**
+tools/task-lint/bin/
 
 !.gitignore
 !AGENTS.md
