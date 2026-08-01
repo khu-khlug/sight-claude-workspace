@@ -7,24 +7,22 @@ import (
 	"testing"
 )
 
-func TestRunAcceptsValidDocumentsWithLFAndCRLFAndIgnoresOtherDirectories(t *testing.T) {
-	root := createRepository(t, defaultStandard)
+func TestRunAcceptsValidDocumentsAndIgnoresOtherDirectories(t *testing.T) {
+	root := createRepository(t)
 	writeTask(t, root, "open/lf.md", validDocument("\n"))
 	writeTask(t, root, "completed/crlf.md", validDocument("\r\n"))
 	writeTask(t, root, "group/reference.md", "# Task 형식이 아닌 참고 문서\n")
 
-	errors, err := Run(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(errors) != 0 {
-		t.Fatalf("expected no errors, got: %v", errors)
-	}
+	assertNoErrors(t, root)
 }
 
 func TestRunReportsMissingDuplicateOutOfOrderAndEmptySections(t *testing.T) {
-	root := createRepository(t, defaultStandard)
+	root := createRepository(t)
 	writeTask(t, root, "open/invalid.md", strings.Join([]string{
+		"---",
+		"type: backend",
+		"---",
+		"",
 		"# Invalid",
 		"",
 		"## Database",
@@ -44,22 +42,39 @@ func TestRunReportsMissingDuplicateOutOfOrderAndEmptySections(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	messages := errorMessages(errors)
-	for _, expected := range []string{
-		"필수 섹션 'Overview'의 내용이 비어 있습니다",
+	assertMessages(t, errors,
+		"섹션 'Overview'의 내용이 비어 있습니다",
 		"필수 섹션 'Behavior'이 없습니다",
-		"필수 섹션 'Database'이 중복되었습니다",
-	} {
-		if !strings.Contains(messages, expected) {
-			t.Errorf("expected %q in errors:\n%s", expected, messages)
-		}
-	}
+		"섹션 'Database'이 중복되었습니다",
+	)
 }
 
-func TestRunChecksRequiredSectionOrderAndAllowsAdditionalSections(t *testing.T) {
-	root := createRepository(t, defaultStandard)
+func TestRunValidatesOptionalSectionsWhenPresent(t *testing.T) {
+	root := createRepository(t)
+	writeSchema(t, root, "backend", schemaWithOptionalSection)
+	writeTask(t, root, "open/without-optional.md", validDocument("\n"))
+	writeTask(t, root, "completed/with-optional.md", validDocument("\n")+strings.Join([]string{
+		"## Notes",
+		"",
+		"optional value",
+	}, "\n"))
+
+	assertNoErrors(t, root)
+}
+
+func TestRunChecksSectionOrderAndAdditionalSectionPolicy(t *testing.T) {
+	root := createRepository(t)
+	writeSchema(t, root, "backend", strings.Replace(
+		defaultSchema,
+		"additionalSections: true",
+		"additionalSections: false",
+		1,
+	))
 	writeTask(t, root, "open/order.md", strings.Join([]string{
+		"---",
+		"type: backend",
+		"---",
+		"",
 		"# Order",
 		"",
 		"## Behavior",
@@ -83,16 +98,142 @@ func TestRunChecksRequiredSectionOrderAndAllowsAdditionalSections(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(errors) != 1 ||
-		!strings.Contains(errors[0].Message, "'Behavior'은 'Overview' 뒤에 있어야 합니다") {
-		t.Fatalf("expected one order error, got: %v", errors)
+	assertMessages(t, errors,
+		"섹션 'Behavior'은 'Overview' 뒤에 있어야 합니다",
+		"schema에 정의되지 않은 섹션 'Additional'입니다",
+	)
+}
+
+func TestRunSelectsSchemaAndStandardFromTaskType(t *testing.T) {
+	root := createRepository(t)
+	writeStandard(t, root, "frontend", "# Frontend Standard\n")
+	writeSchema(t, root, "frontend", `version: 1
+type: frontend
+frontmatter:
+  additionalFields: false
+  fields:
+    - name: type
+      type: string
+      required: true
+      const: frontend
+sections:
+  - name: UI
+    required: true
+additionalSections: true
+`)
+	writeTask(t, root, "open/frontend.md", strings.Join([]string{
+		"---",
+		"type: frontend",
+		"---",
+		"",
+		"# Frontend",
+		"",
+		"## UI",
+		"",
+		"value",
+	}, "\n"))
+
+	assertNoErrors(t, root)
+}
+
+func TestRunValidatesFrontmatterFieldsFromSchema(t *testing.T) {
+	root := createRepository(t)
+	writeSchema(t, root, "backend", schemaWithFrontmatterFields)
+	writeTask(t, root, "open/invalid-fields.md", strings.Join([]string{
+		"---",
+		"type: backend",
+		"priority: high",
+		"labels: backend",
+		"unexpected: true",
+		"---",
+	}, "\n"))
+
+	errors, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
 	}
+	assertMessages(t, errors,
+		"필수 frontmatter field 'approved'이 없습니다",
+		"frontmatter field 'priority'은 integer type이어야 합니다",
+		"frontmatter field 'labels'은 string-list type이어야 합니다",
+		"schema에 정의되지 않은 frontmatter field 'unexpected'입니다",
+	)
+}
+
+func TestRunReportsInvalidDuplicateOrUnknownTaskType(t *testing.T) {
+	root := createRepository(t)
+	writeTask(t, root, "open/missing.md", "# Missing frontmatter\n")
+	writeTask(t, root, "open/multiple.md", "---\ntype: [backend, frontend]\n---\n")
+	writeTask(t, root, "open/duplicate.md", "---\ntype: backend\ntype: backend\n---\n")
+	writeTask(t, root, "open/unknown.md", "---\ntype: frontend\n---\n")
+
+	errors, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertMessages(t, errors,
+		"문서 시작에 YAML frontmatter가 없습니다",
+		"type은 소문자로 시작하고 소문자, 숫자, hyphen만 포함하는 단일 string 값이어야 합니다",
+		"frontmatter의 'type' field가 중복되었습니다",
+		"type 'frontend'에 해당하는 tasks/_schema/frontend.yaml이 없습니다",
+	)
+}
+
+func TestRunRequiresMatchingStandardForSchema(t *testing.T) {
+	root := createRepository(t)
+	writeSchema(t, root, "frontend", strings.ReplaceAll(defaultSchema, "backend", "frontend"))
+
+	errors, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertMessages(t, errors, "tasks/_standard/frontend.md가 없습니다")
+}
+
+func TestRunRejectsUnknownSchemaFields(t *testing.T) {
+	root := createRepository(t)
+	writeSchema(t, root, "backend", strings.Replace(
+		defaultSchema,
+		"required: true",
+		"requred: true",
+		1,
+	))
+
+	errors, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertMessages(t, errors, "field requred not found")
+}
+
+func TestRunRequiresExplicitRequiredAndAdditionalPolicies(t *testing.T) {
+	root := createRepository(t)
+	writeSchema(t, root, "backend", `version: 1
+type: backend
+frontmatter:
+  fields:
+    - name: type
+      type: string
+      const: backend
+sections:
+  - name: Overview
+`)
+
+	errors, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertMessages(t, errors,
+		"frontmatter의 additionalFields를 명시해야 합니다",
+		"frontmatter field 'type'의 required를 명시해야 합니다",
+		"section 'Overview'의 required를 명시해야 합니다",
+		"additionalSections를 명시해야 합니다",
+	)
 }
 
 func TestRunIgnoresHeadingsInsideFencedCodeBlocks(t *testing.T) {
-	root := createRepository(t, defaultStandard)
+	root := createRepository(t)
 	document := validDocument("\n") + strings.Join([]string{
-		"",
 		"## Additional",
 		"",
 		"```markdown",
@@ -101,86 +242,104 @@ func TestRunIgnoresHeadingsInsideFencedCodeBlocks(t *testing.T) {
 	}, "\n")
 	writeTask(t, root, "open/fence.md", document)
 
-	errors, err := Run(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(errors) != 0 {
-		t.Fatalf("expected no errors, got: %v", errors)
-	}
+	assertNoErrors(t, root)
 }
 
-func TestRunRejectsDuplicateSectionsInStandard(t *testing.T) {
-	root := createRepository(t, `# Standard
+func TestRunIgnoresHeadingsInsideFrontmatter(t *testing.T) {
+	root := createRepository(t)
+	writeSchema(t, root, "backend", strings.Replace(
+		schemaWithFrontmatterFields,
+		"    - name: priority\n      type: integer\n      required: false",
+		"    - name: description\n      type: string\n      required: false",
+		1,
+	))
+	writeTask(t, root, "open/frontmatter-heading.md", strings.Join([]string{
+		"---",
+		"type: backend",
+		"approved: true",
+		"description: |",
+		"  ## Overview",
+		"---",
+	}, "\n"))
 
-## 필수 섹션
-
-### 1. Overview
-
-### 2. Overview
-`)
-
-	errors, err := Run(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(errors) != 1 ||
-		!strings.Contains(errors[0].Message, "필수 섹션 'Overview'이 중복되었습니다") {
-		t.Fatalf("expected standard duplicate error, got: %v", errors)
-	}
-}
-
-func TestRunRejectsDuplicateRequiredSectionBlocksInStandard(t *testing.T) {
-	root := createRepository(t, `# Standard
-
-## 필수 섹션
-
-### 1. Overview
-
-## Other
-
-## 필수 섹션
-
-### 2. Behavior
-`)
-
-	errors, err := Run(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(errors) != 1 ||
-		!strings.Contains(errors[0].Message, "'## 필수 섹션' heading이 중복되었습니다") {
-		t.Fatalf("expected duplicate definition block error, got: %v", errors)
-	}
+	assertNoErrors(t, root)
 }
 
 const defaultStandard = `# Standard
 
-## Introduction
+Human-readable guidance.
+`
 
-### Not a required section
+const defaultSchema = `version: 1
+type: backend
+frontmatter:
+  additionalFields: false
+  fields:
+    - name: type
+      type: string
+      required: true
+      const: backend
+sections:
+  - name: Overview
+    required: true
+  - name: Behavior
+    required: true
+  - name: Database
+    required: true
+additionalSections: true
+`
 
-## 필수 섹션
+const schemaWithOptionalSection = `version: 1
+type: backend
+frontmatter:
+  additionalFields: false
+  fields:
+    - name: type
+      type: string
+      required: true
+      const: backend
+sections:
+  - name: Overview
+    required: true
+  - name: Behavior
+    required: true
+  - name: Database
+    required: true
+  - name: Notes
+    required: false
+additionalSections: true
+`
 
-### 1. Overview
-
-description
-
-### 2. Behavior
-
-description
-
-### 3. Database
-
-description
-
-## Other
-
-### Not a required section
+const schemaWithFrontmatterFields = `version: 1
+type: backend
+frontmatter:
+  additionalFields: false
+  fields:
+    - name: type
+      type: string
+      required: true
+      const: backend
+    - name: priority
+      type: integer
+      required: false
+    - name: approved
+      type: boolean
+      required: true
+    - name: labels
+      type: string-list
+      required: false
+sections:
+  - name: Overview
+    required: false
+additionalSections: true
 `
 
 func validDocument(newline string) string {
-	lines := []string{
+	return strings.Join([]string{
+		"---",
+		"type: backend",
+		"---",
+		"",
 		"# Valid",
 		"",
 		"## Overview",
@@ -195,14 +354,15 @@ func validDocument(newline string) string {
 		"",
 		"database",
 		"",
-	}
-	return strings.Join(lines, newline)
+	}, newline)
 }
 
-func createRepository(t *testing.T, standard string) string {
+func createRepository(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
 	for _, directory := range []string{
+		filepath.Join(root, "tasks", "_schema"),
+		filepath.Join(root, "tasks", "_standard"),
 		filepath.Join(root, "tasks", "open"),
 		filepath.Join(root, "tasks", "completed"),
 	} {
@@ -210,14 +370,25 @@ func createRepository(t *testing.T, standard string) string {
 			t.Fatal(err)
 		}
 	}
-	if err := os.WriteFile(
-		filepath.Join(root, "tasks", "STANDARD.md"),
-		[]byte(standard),
-		0o644,
-	); err != nil {
+	writeSchema(t, root, "backend", defaultSchema)
+	writeStandard(t, root, "backend", defaultStandard)
+	return root
+}
+
+func writeSchema(t *testing.T, root string, taskType string, content string) {
+	t.Helper()
+	path := filepath.Join(root, "tasks", "_schema", taskType+".yaml")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	return root
+}
+
+func writeStandard(t *testing.T, root string, taskType string, content string) {
+	t.Helper()
+	path := filepath.Join(root, "tasks", "_standard", taskType+".md")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func writeTask(t *testing.T, root string, relativePath string, content string) {
@@ -228,6 +399,27 @@ func writeTask(t *testing.T, root string, relativePath string, content string) {
 	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func assertNoErrors(t *testing.T, root string) {
+	t.Helper()
+	errors, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(errors) != 0 {
+		t.Fatalf("expected no errors, got: %v", errors)
+	}
+}
+
+func assertMessages(t *testing.T, errors []Error, expected ...string) {
+	t.Helper()
+	messages := errorMessages(errors)
+	for _, message := range expected {
+		if !strings.Contains(messages, message) {
+			t.Errorf("expected %q in errors:\n%s", message, messages)
+		}
 	}
 }
 

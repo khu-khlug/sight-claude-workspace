@@ -98,16 +98,18 @@ func resolveRepositoryRoot(rootFlag string) (string, error) {
 		}
 		parent := filepath.Dir(current)
 		if parent == current {
-			return "", fmt.Errorf("tasks/STANDARD.md가 있는 repository root를 찾지 못했습니다")
+			return "", fmt.Errorf("tasks/_schema와 tasks/_standard 디렉터리가 있는 repository root를 찾지 못했습니다")
 		}
 		current = parent
 	}
 }
 
 func isRepositoryRoot(path string) bool {
-	standard, err := os.Stat(filepath.Join(path, "tasks", "STANDARD.md"))
-	if err != nil || standard.IsDir() {
-		return false
+	for _, directory := range []string{"_schema", "_standard"} {
+		info, err := os.Stat(filepath.Join(path, "tasks", directory))
+		if err != nil || !info.IsDir() {
+			return false
+		}
 	}
 	tool, err := os.Stat(filepath.Join(path, "tools", "task-lint"))
 	return err == nil && tool.IsDir()
