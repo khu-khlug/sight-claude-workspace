@@ -1,0 +1,29 @@
+name: Policy lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  policy-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Cache policy lint binaries
+        id: policy-lint-cache
+        uses: actions/cache@v5
+        with:
+          path: tools/policy-lint/bin
+          key: policy-lint-binaries-${{ runner.os }}-v1-${{ hashFiles('tools/policy-lint/**/*.go', 'tools/policy-lint/go.mod', 'tools/policy-lint/go.sum', 'tools/policy-lint/Dockerfile') }}
+
+      - name: Build policy lint
+        if: steps.policy-lint-cache.outputs.cache-hit != 'true'
+        run: docker buildx build --file tools/policy-lint/Dockerfile --output type=local,dest=tools/policy-lint/bin .
+
+      - name: Run policy lint
+        run: tools/policy-lint/bin/policy-lint-linux-amd64

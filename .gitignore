@@ -23,6 +23,10 @@
 !tools/task-lint/**
 tools/task-lint/bin/
 
+!tools/policy-lint
+!tools/policy-lint/**
+tools/policy-lint/bin/
+
 !.gitignore
 !AGENTS.md
 !CLAUDE.md
