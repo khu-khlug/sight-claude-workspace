@@ -36,12 +36,11 @@ sight-workspace/
 
 ## Task 기반 작업 진행
 
-Task 문서는 구현 전에 `tasks/open/`에 작성하고 검토하는 것을 원칙으로 합니다. 각 Task는 YAML frontmatter에 단일 `type`을 선언합니다. `tasks/_schema/{type}.yaml`은 필수·선택 입력을 정의하고, `tasks/_standard/{type}.md`는 각 입력의 작성 지침을 설명합니다. 현재 Backend Standard는 백엔드 저장소에서 사용하던 정책을 이전한 것으로, 내부 구현 방법보다 HTTP API, database, 외부 시스템과의 계약, 사용자에게 관찰되는 비즈니스 동작, 보안 및 운영 영향을 작성합니다.
+Task 문서는 구현 전에 `tasks/open/`에 작성하고 검토하는 것을 원칙으로 합니다. 각 Task는 YAML frontmatter에 단일 `type`을 선언합니다. 각 문서 유형 별로 필수적으로 작성해야 하는 항목들을 작성한 뒤, 아래 내용을 참고하여 문서 형식을 검증합니다.
 
-- Backend 작성 원칙: [`tasks/_standard/backend.md`](tasks/_standard/backend.md)
-- Backend 입력 schema: [`tasks/_schema/backend.yaml`](tasks/_schema/backend.yaml)
-- 진행 중인 Task: `tasks/open/`
-- 완료된 Task: `tasks/completed/`
+혹 도커를 사용하기에 마땅치 않은 환경이라면, PR 올리시면 자동으로 깃허브에서 돌아갑니다. 해당 내용 참고하셔서 수정 진행하셔도 됩니다.
+
+### Task 문서 형식 검증
 
 Task 문서를 생성하거나 수정한 뒤에는 현재 OS와 architecture에 맞는 `tools/task-lint/bin/task-lint-*` binary로 필수 섹션과 내용을 검증해야 합니다. binary가 없거나 source와 일치하지 않으면 다음 명령으로 다시 build합니다.
 
@@ -51,12 +50,12 @@ docker buildx build --file tools/task-lint/Dockerfile --output type=local,dest=t
 
 자세한 build 및 실행 방법은 [`tools/task-lint/README.md`](tools/task-lint/README.md)를 참고합니다.
 
-## Pull Request 자기 승인
+## PR 셀프 승인
 
-`khu-khlug/sight-engineers` 팀의 활성 멤버는 자신이 작성한 `main` 대상 Pull Request에 `/approve` 댓글을 입력하여 봇 승인을 요청할 수 있습니다. Draft Pull Request이거나 아래 경로가 변경된 경우에는 승인하지 않고 사유를 댓글로 남기며, 다른 사람의 검토가 필요합니다.
+`sight-engineers` 팀에 소속되어 있으면 자신이 작성한 `main` 향 Pull Request에 `/approve` 댓글을 입력하여 봇에게 승인을 요청할 수 있습니다.
+
+단, 아래 경로가 변경된 경우에는 승인하지 않고 사유를 댓글로 남기며, 다른 사람의 검토가 필요합니다.
 
 - `policy/**`
 - `tools/policy-lint/**`
 - `.github/workflows/**`
-
-새 커밋으로 기존 승인이 해제되면 최신 상태에서 `/approve`를 다시 입력해야 합니다.
