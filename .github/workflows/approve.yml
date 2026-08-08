@@ -1,0 +1,179 @@
+name: Approve pull request
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+env:
+  APPROVE_TEAM: sight-engineers
+
+jobs:
+  approve:
+    if: github.event.issue.pull_request && github.event.comment.body == '/approve'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: approve-pull-request-${{ github.event.issue.number }}
+      cancel-in-progress: false
+
+    steps:
+      - name: Check and approve pull request
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.PR_APPROVE_BOT_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pullNumber = context.issue.number;
+            const requester = context.payload.comment.user.login;
+            const normalizedRequester = requester.toLowerCase();
+
+            const comment = async (message) => {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: pullNumber,
+                body: message,
+              });
+            };
+
+            const refuse = async (reason) => {
+              await comment(`승인할 수 없습니다: ${reason}`);
+            };
+
+            const isWithin = (path, protectedPath) =>
+              path === protectedPath || path.startsWith(`${protectedPath}/`);
+
+            const isProtectedPath = (path) =>
+              isWithin(path, "policy") ||
+              isWithin(path, "tools/policy-lint") ||
+              isWithin(path, ".github/workflows");
+
+            const displayPath = (path) =>
+              `\`${path.replaceAll("`", "\\`").replaceAll("\n", "\\n")}\``;
+
+            try {
+              let membership;
+              try {
+                const response = await github.request(
+                  "GET /orgs/{org}/teams/{team_slug}/memberships/{username}",
+                  {
+                    org: owner,
+                    team_slug: process.env.APPROVE_TEAM,
+                    username: requester,
+                  },
+                );
+                membership = response.data;
+              } catch (error) {
+                if (error.status === 404) {
+                  await refuse(
+                    `@${requester}님은 \`${owner}/${process.env.APPROVE_TEAM}\` 팀의 활성 멤버가 아닙니다.`,
+                  );
+                  return;
+                }
+                throw error;
+              }
+
+              if (membership.state !== "active") {
+                await refuse(
+                  `@${requester}님의 \`${owner}/${process.env.APPROVE_TEAM}\` 팀 멤버십이 활성 상태가 아닙니다.`,
+                );
+                return;
+              }
+
+              const { data: pull } = await github.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: pullNumber,
+              });
+
+              if (pull.user.login.toLowerCase() !== normalizedRequester) {
+                await refuse("PR 작성자만 자신의 PR을 승인 요청할 수 있습니다.");
+                return;
+              }
+
+              if (pull.state !== "open") {
+                await refuse("열린 PR에서만 승인 요청을 사용할 수 있습니다.");
+                return;
+              }
+
+              if (pull.base.ref !== "main") {
+                await refuse("`main` 브랜치를 대상으로 하는 PR만 승인할 수 있습니다.");
+                return;
+              }
+
+              if (pull.draft) {
+                await refuse("Draft PR은 승인할 수 없습니다.");
+                return;
+              }
+
+              if (pull.changed_files > 3000) {
+                await refuse("변경 파일이 3,000개를 초과하여 전체 변경을 안전하게 확인할 수 없습니다.");
+                return;
+              }
+
+              const files = await github.paginate(github.rest.pulls.listFiles, {
+                owner,
+                repo,
+                pull_number: pullNumber,
+                per_page: 100,
+              });
+
+              if (files.length !== pull.changed_files) {
+                await refuse("변경 파일 목록을 완전하게 확인할 수 없습니다.");
+                return;
+              }
+
+              const protectedPaths = new Set();
+              for (const file of files) {
+                if (isProtectedPath(file.filename)) {
+                  protectedPaths.add(file.filename);
+                }
+                if (file.previous_filename && isProtectedPath(file.previous_filename)) {
+                  protectedPaths.add(file.previous_filename);
+                }
+              }
+
+              if (protectedPaths.size > 0) {
+                const paths = [...protectedPaths].sort();
+                const shownPaths = paths.slice(0, 20).map(displayPath);
+                const omitted = paths.length - shownPaths.length;
+                const suffix = omitted > 0 ? `\n- 그 외 ${omitted}개 경로` : "";
+
+                await refuse(
+                  `사람의 검토가 필요한 경로가 변경되었습니다.\n\n- ${shownPaths.join("\n- ")}${suffix}`,
+                );
+                return;
+              }
+
+              const { data: latestPull } = await github.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: pullNumber,
+              });
+
+              if (latestPull.head.sha !== pull.head.sha) {
+                await refuse("검사 중 PR 커밋이 변경되었습니다. 최신 상태에서 `/approve`를 다시 입력해 주세요.");
+                return;
+              }
+
+              await github.rest.pulls.createReview({
+                owner,
+                repo,
+                pull_number: pullNumber,
+                commit_id: pull.head.sha,
+                event: "APPROVE",
+                body: `@${requester}님의 \`/approve\` 요청에 따라 변경 경로를 확인하고 승인했습니다.`,
+              });
+            } catch (error) {
+              core.setFailed(error.message);
+
+              try {
+                const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+                await refuse(`검사 중 오류가 발생했습니다. [실행 기록](${runUrl})을 확인해 주세요.`);
+              } catch (commentError) {
+                core.warning(`Failed to leave an error comment: ${commentError.message}`);
+              }
+            }
