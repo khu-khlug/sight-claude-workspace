@@ -19,6 +19,7 @@ Sight 서비스를 구성하는 여러 저장소를 하나의 작업 공간에�
 sight-workspace/
 ├── sight-spring-backend/  # 백엔드 Git 저장소
 ├── sight-frontend/        # 프론트엔드 Git 저장소
+├── policy/                # 비즈니스 정책과 정책 문서 표준
 ├── tasks/                 # 통합 Task 문서
 ├── tools/                 # 워크스페이스 관리 도구
 └── README.md
@@ -49,3 +50,13 @@ docker buildx build --file tools/task-lint/Dockerfile --output type=local,dest=t
 ```
 
 자세한 build 및 실행 방법은 [`tools/task-lint/README.md`](tools/task-lint/README.md)를 참고합니다.
+
+## Pull Request 자기 승인
+
+`khu-khlug/sight-engineers` 팀의 활성 멤버는 자신이 작성한 `main` 대상 Pull Request에 `/approve` 댓글을 입력하여 봇 승인을 요청할 수 있습니다. Draft Pull Request이거나 아래 경로가 변경된 경우에는 승인하지 않고 사유를 댓글로 남기며, 다른 사람의 검토가 필요합니다.
+
+- `policy/**`
+- `tools/policy-lint/**`
+- `.github/workflows/**`
+
+새 커밋으로 기존 승인이 해제되면 최신 상태에서 `/approve`를 다시 입력해야 합니다.
