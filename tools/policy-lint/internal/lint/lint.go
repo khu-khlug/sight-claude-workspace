@@ -109,6 +109,12 @@ func lintDomainDirectory(repositoryRoot string, relativeDirectory string) ([]Err
 					Path:    relativePath,
 					Message: "일반 파일이어야 합니다",
 				})
+			} else {
+				historyErrors, err := lintHistoryDocument(repositoryRoot, relativePath)
+				if err != nil {
+					return nil, err
+				}
+				errors = append(errors, historyErrors...)
 			}
 		default:
 			errors = append(errors, Error{

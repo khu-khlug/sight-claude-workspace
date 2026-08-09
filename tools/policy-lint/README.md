@@ -58,7 +58,7 @@ lint source가 binary build 이후 변경되면 실행을 중단하고 binary를
 
 ## CI
 
-`.github/workflows/policy-lint.yml`은 `main` branch를 대상으로 하는 push와 pull request에서 실행된다. lint source와 Dockerfile을 기준으로 binary cache를 사용하고, cache가 없으면 Docker로 binary를 build한 뒤 Linux x64 binary로 정책 구조와 `POLICY.md` 형식을 검사한다.
+`.github/workflows/policy-lint.yml`은 `main` branch를 대상으로 하는 push와 pull request에서 실행된다. lint source와 Dockerfile을 기준으로 binary cache를 사용하고, cache가 없으면 Docker로 binary를 build한 뒤 Linux x64 binary로 정책 구조와 `POLICY.md` 및 `HISTORY.md` 형식을 검사한다.
 
 ## 검증 범위
 
@@ -136,8 +136,34 @@ stateDiagram-v2
 
 로컬 Markdown link는 현재 `POLICY.md`를 기준으로 한 상대경로를 사용해야 한다. link 대상은 repository 안에 존재하는 일반 파일이어야 한다. 다른 정책을 참조할 때에는 대상 `POLICY.md` 전체를 가리키며 heading fragment를 사용할 수 없다. 외부 URL은 대상 존재 여부를 검사하지 않는다.
 
+### `HISTORY.md` 형식
+
+`HISTORY.md`는 기록할 정책 변경 이력이 있을 때만 생성하며, 빈 문서는 허용하지 않는다. H1은 사용하지 않고 각 변경 기록을 다음 형식의 H2로 작성한다.
+
+```markdown
+## 변경 내용 (YYYY-MM-DD)
+```
+
+`변경 내용`은 비어 있을 수 없다. 날짜는 해당 `POLICY.md` 변경이 `main` branch에 반영되어 유효해진 날짜이며, 실제로 존재하는 날짜를 사용한다. 기록은 날짜의 오름차순으로 배치하고 같은 날짜의 기록을 여러 개 작성할 수 있다. 같은 날짜 안에서의 순서는 제한하지 않는다.
+
+각 H2에는 비어 있지 않은 본문이 있어야 한다. 본문의 Markdown 형식은 제한하지 않지만, H1, H3 및 그 밖의 추가 heading은 사용할 수 없다. 첫 H2 앞에도 본문을 작성할 수 없다.
+
+다음 문서는 허용되는 형식의 예시다.
+
+```markdown
+## 참가 확정 기준 변경 (2026-08-09)
+
+기존에는 참가비 납부 여부만으로 참가를 확정했으나, 신청 승인과 참가비 납부가 모두 완료된 경우에 참가를 확정하도록 변경했다.
+
+- AS-IS: 참가비를 납부하면 참가가 확정되었다.
+- TO-BE: 신청 승인과 참가비 납부가 모두 완료되어야 참가가 확정된다.
+- 변경 이유: 승인되지 않은 신청의 참가가 확정되는 문제를 방지하기 위해 판단 기준을 통합했다.
+
+자세한 논의는 [관련 pull request](https://github.com/example/repository/pull/1)에서 확인할 수 있다.
+```
+
 ## 종료 코드
 
 - `0`: lint 성공
-- `1`: 허용되지 않은 정책 구조 또는 `POLICY.md` 형식 발견
+- `1`: 허용되지 않은 정책 구조 또는 `POLICY.md` 및 `HISTORY.md` 형식 발견
 - `2`: 저장소 탐색, 파일 읽기 또는 binary source hash 검증 실패

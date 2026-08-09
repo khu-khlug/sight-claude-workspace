@@ -11,7 +11,7 @@ func TestRunAcceptsRootFilesAndValidDomainStructures(t *testing.T) {
 	root := createRepository(t)
 	writeFile(t, root, "policy/회원/POLICY.md")
 	writeFile(t, root, "policy/행사/POLICY.md")
-	writeFile(t, root, "policy/행사/HISTORY.md")
+	writeHistoryFile(t, root, "policy/행사/HISTORY.md")
 	writeFile(t, root, "policy/english_domain/POLICY.md")
 
 	assertNoErrors(t, root)
@@ -49,7 +49,7 @@ func TestRunRequiresPolicyAndAllowsOptionalHistory(t *testing.T) {
 	root := createRepository(t)
 	makeDirectory(t, root, "policy/회원")
 	writeFile(t, root, "policy/행사/POLICY.md")
-	writeFile(t, root, "policy/행사/HISTORY.md")
+	writeHistoryFile(t, root, "policy/행사/HISTORY.md")
 
 	errors, err := Run(root)
 	if err != nil {
@@ -121,6 +121,11 @@ func writeFile(t *testing.T, root string, relativePath string) {
 	if err := os.WriteFile(path, []byte("# document\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func writeHistoryFile(t *testing.T, root string, relativePath string) {
+	t.Helper()
+	writeContent(t, root, relativePath, "## 정책 원칙 변경 (2026-08-09)\n\n변경 내용이다.\n")
 }
 
 func makeDirectory(t *testing.T, root string, relativePath string) {
