@@ -81,7 +81,7 @@ type: backend
 - `additionalPhoneNumbers`는 숫자 이외의 문자를 제거하며, 제거 결과가 비어 있는 항목은 발송 대상에서 제외한다.
 - `message`가 비어 있으면 `400 Bad Request`를 반환한다.
 - 유효한 수신자가 없으면 `400 Bad Request`를 반환한다.
-- `SMS_SENDER_PHONE` 값이 비어 있으면 `409 Conflict`를 반환한다.
+- `SMS_SENDER_PHONE` 값이 비어 있으면 `500 Internal Server Error`를 반환한다.
 - 서버가 수신자별 최종 메시지를 만든 뒤 바이트 수에 따라 `SMS` 또는 `LMS`를 결정한다.
 - 외부 문자 발송 서비스의 처리 결과를 수신자별로 반환한다.
 - 응답 상태는 다음과 같이 구분한다.
@@ -90,7 +90,7 @@ type: backend
   - `400 Bad Request`: 메시지, 수신자 또는 전화번호 형식이 유효하지 않음
   - `401 Unauthorized`: 인증되지 않은 요청
   - `403 Forbidden`: 운영진이 아닌 요청
-  - `502 Bad Gateway` 또는 `503 Service Unavailable`: 외부 문자 발송 서비스와 통신할 수 없음
+  - `500 Internal Server Error`: 외부 문자 발송 서비스와 통신할 수 없음
 - 성공 또는 부분 성공 응답은 `results` 배열을 포함한다.
 - 외부 발송에 실패하거나 회원 전화번호가 없어 발송하지 않은 수신자가 있으면 `422 Unprocessable Entity`를 반환한다.
 
