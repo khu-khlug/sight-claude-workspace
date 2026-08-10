@@ -265,6 +265,164 @@ func TestRunIgnoresHeadingsInsideFrontmatter(t *testing.T) {
 	assertNoErrors(t, root)
 }
 
+func TestRunAcceptsStructuredSectionLiteralAndRecords(t *testing.T) {
+	root := createRepository(t)
+	writeSchema(t, root, "backend", schemaWithStructuredSection)
+	writeTask(t, root, "open/literal.md", strings.Join([]string{
+		"---",
+		"type: backend",
+		"---",
+		"",
+		"# Literal",
+		"",
+		"## Policies",
+		"",
+		"No changes",
+	}, "\n"))
+	writeTask(t, root, "completed/records.md", strings.Join([]string{
+		"---",
+		"type: backend",
+		"---",
+		"",
+		"# Records",
+		"",
+		"## Policies",
+		"",
+		"### First policy",
+		"",
+		"- Actor: manager",
+		"- Decision: Denied",
+		"- Recovery: wait for completion",
+		"",
+		"### Second policy",
+		"",
+		"- Actor: member",
+		"- Decision: Allowed",
+		"- Recovery: None",
+	}, "\n"))
+
+	assertNoErrors(t, root)
+}
+
+func TestRunValidatesStructuredSectionRecords(t *testing.T) {
+	root := createRepository(t)
+	writeSchema(t, root, "backend", schemaWithStructuredSection)
+	writeTask(t, root, "open/invalid-records.md", strings.Join([]string{
+		"---",
+		"type: backend",
+		"---",
+		"",
+		"# Invalid records",
+		"",
+		"## Policies",
+		"",
+		"### Duplicate policy",
+		"",
+		"- Decision: Sometimes",
+		"- Actor: manager",
+		"- Actor: operator",
+		"- Unexpected: value",
+		"- Recovery:",
+		"",
+		"### Duplicate policy",
+		"",
+		"- Actor: member",
+		"- Decision: Allowed",
+		"",
+		"### Out of order",
+		"",
+		"- Decision: Denied",
+		"- Actor: member",
+		"- Recovery: None",
+	}, "\n"))
+
+	errors, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertMessages(t, errors,
+		"record 'Duplicate policy' field 'Actor'이 중복되었습니다",
+		"field 'Decision'은 다음 값 중 하나여야 합니다: Allowed, Denied",
+		"schema로 정의되지 않은 field 'Unexpected'",
+		"field 'Recovery'의 값이 비어 있습니다",
+		"record 'Duplicate policy'에 필수 field 'Recovery'이 없습니다",
+		"record 'Duplicate policy'이 중복되었습니다",
+		"record 'Out of order' field 'Decision'은 'Actor' 뒤에 있어야 합니다",
+	)
+}
+
+func TestRunRejectsMalformedStructuredSectionContent(t *testing.T) {
+	root := createRepository(t)
+	writeSchema(t, root, "backend", schemaWithStructuredSection)
+	writeTask(t, root, "open/malformed-records.md", strings.Join([]string{
+		"---",
+		"type: backend",
+		"---",
+		"",
+		"# Malformed records",
+		"",
+		"## Policies",
+		"",
+		"No changes with additional text",
+	}, "\n"))
+
+	errors, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertMessages(t, errors,
+		"records 내용은 level 3 제목 또는 '- 이름: 값' 형식이어야 합니다",
+		"level 3 제목의 record가 최소 1개 있어야 합니다",
+	)
+}
+
+func TestRunValidatesStructuredSectionSchema(t *testing.T) {
+	root := createRepository(t)
+	writeSchema(t, root, "backend", `version: 1
+type: backend
+frontmatter:
+  additionalFields: false
+  fields:
+    - name: type
+      type: string
+      required: true
+      const: backend
+sections:
+  - name: Policies
+    required: true
+    content:
+      oneOf:
+        - literal: ""
+          minItems: 1
+        - type: records
+          headingLevel: 2
+          minItems: 0
+          fields:
+            - name: Decision
+              type: enum
+            - name: Note
+              type: string
+              required: true
+              values: [value]
+additionalSections: true
+`)
+
+	errors, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertMessages(t, errors,
+		"literal이 비어 있습니다",
+		"literal variant에는 records 설정을 사용할 수 없습니다",
+		"headingLevel은 3 이상 6 이하여야 합니다",
+		"minItems는 1 이상이어야 합니다",
+		"additionalFields를 명시해야 합니다",
+		"field 'Decision'의 required를 명시해야 합니다",
+		"field 'Decision'의 values가 비어 있습니다",
+		"field 'Note'의 values는 enum type에서만 사용할 수 있습니다",
+	)
+}
+
 const defaultStandard = `# Standard
 
 Human-readable guidance.
@@ -331,6 +489,39 @@ frontmatter:
 sections:
   - name: Overview
     required: false
+additionalSections: true
+`
+
+const schemaWithStructuredSection = `version: 1
+type: backend
+frontmatter:
+  additionalFields: false
+  fields:
+    - name: type
+      type: string
+      required: true
+      const: backend
+sections:
+  - name: Policies
+    required: true
+    content:
+      oneOf:
+        - literal: No changes
+        - type: records
+          headingLevel: 3
+          minItems: 1
+          additionalFields: false
+          fields:
+            - name: Actor
+              type: string
+              required: true
+            - name: Decision
+              type: enum
+              required: true
+              values: [Allowed, Denied]
+            - name: Recovery
+              type: string
+              required: true
 additionalSections: true
 `
 
