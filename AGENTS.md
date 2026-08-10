@@ -38,6 +38,8 @@ sight-workspace/
 - Task에는 관련 저장소, 저장소별 변경 범위, 저장소 간 의존 관계와 검증 방법이 드러나야 한다.
 - 구현 중 요구사항이나 설계가 변경되면 관련 코드와 Task 문서 사이에 모순이 남지 않도록 함께 갱신한다.
 - 단일 저장소에만 적용되는 세부 Task 규칙이 해당 저장소에 있다면 그 규칙도 함께 따른다.
+- Frontend Task 문서를 새로 만들거나 수정하기 전에 `tasks/_standard/frontend.md`를 처음부터 끝까지 읽고 따른다.
+- 새 Frontend Task 문서는 YAML frontmatter에 `type: frontend`를 선언하고 `tasks/_schema/frontend.yaml`의 입력 schema와 `tasks/_standard/frontend.md`의 작성 지침을 따라 `tasks/open/` 아래에 만든다.
 - Backend Task 문서를 새로 만들거나 수정하기 전에 `tasks/_standard/backend.md`를 처음부터 끝까지 읽고 따른다.
 - 새 Backend Task 문서는 YAML frontmatter에 `type: backend`를 선언하고 `tasks/_schema/backend.yaml`의 입력 schema와 `tasks/_standard/backend.md`의 작성 지침을 따라 `tasks/open/` 아래에 만든다.
 - Task 문서를 새로 만들거나 수정한 뒤에는 저장소 root에서 현재 OS와 architecture에 맞는 `tools/task-lint/bin/task-lint-*` binary를 실행한다.

@@ -32,8 +32,29 @@ type fieldSchema struct {
 }
 
 type sectionSchema struct {
-	Name     string `yaml:"name"`
-	Required *bool  `yaml:"required"`
+	Name     string                `yaml:"name"`
+	Required *bool                 `yaml:"required"`
+	Content  *sectionContentSchema `yaml:"content"`
+}
+
+type sectionContentSchema struct {
+	OneOf []sectionContentVariantSchema `yaml:"oneOf"`
+}
+
+type sectionContentVariantSchema struct {
+	Literal          *string             `yaml:"literal"`
+	Type             string              `yaml:"type"`
+	HeadingLevel     *int                `yaml:"headingLevel"`
+	MinItems         *int                `yaml:"minItems"`
+	AdditionalFields *bool               `yaml:"additionalFields"`
+	Fields           []recordFieldSchema `yaml:"fields"`
+}
+
+type recordFieldSchema struct {
+	Name     string   `yaml:"name"`
+	Type     string   `yaml:"type"`
+	Required *bool    `yaml:"required"`
+	Values   []string `yaml:"values"`
 }
 
 func loadSchemas(repositoryRoot string) (map[string]taskSchema, []Error, error) {
@@ -174,6 +195,9 @@ func validateSchema(
 		if section.Required == nil {
 			addError(&errors, fmt.Sprintf("section '%s'의 required를 명시해야 합니다", section.Name))
 		}
+		if section.Content != nil {
+			validateSectionContent(&errors, addError, section.Name, *section.Content)
+		}
 	}
 	if len(schema.Sections) == 0 {
 		addError(&errors, "sections가 비어 있습니다")
@@ -184,6 +208,120 @@ func validateSchema(
 		addError(&errors, fmt.Sprintf("tasks/_standard/%s.md가 없습니다", taskType))
 	}
 	return errors
+}
+
+func validateSectionContent(
+	errors *[]Error,
+	addError func(*[]Error, string),
+	sectionName string,
+	content sectionContentSchema,
+) {
+	prefix := fmt.Sprintf("section '%s' content", sectionName)
+	if len(content.OneOf) == 0 {
+		addError(errors, prefix+"의 oneOf가 비어 있습니다")
+		return
+	}
+
+	literals := make(map[string]bool)
+	recordsFound := false
+	for index, variant := range content.OneOf {
+		variantPrefix := fmt.Sprintf("%s oneOf[%d]", prefix, index)
+		hasLiteral := variant.Literal != nil
+		hasType := variant.Type != ""
+		if hasLiteral == hasType {
+			addError(errors, variantPrefix+"에는 literal 또는 type 중 하나만 있어야 합니다")
+			continue
+		}
+
+		if hasLiteral {
+			if strings.TrimSpace(*variant.Literal) == "" {
+				addError(errors, variantPrefix+"의 literal이 비어 있습니다")
+			}
+			if literals[*variant.Literal] {
+				addError(errors, fmt.Sprintf("%s의 literal '%s'이 중복되었습니다", prefix, *variant.Literal))
+			}
+			literals[*variant.Literal] = true
+			if variant.HeadingLevel != nil || variant.MinItems != nil ||
+				variant.AdditionalFields != nil || len(variant.Fields) > 0 {
+				addError(errors, variantPrefix+"의 literal variant에는 records 설정을 사용할 수 없습니다")
+			}
+			continue
+		}
+
+		if variant.Type != "records" {
+			addError(errors, fmt.Sprintf("%s의 type '%s'을 지원하지 않습니다", variantPrefix, variant.Type))
+			continue
+		}
+		if recordsFound {
+			addError(errors, prefix+"에는 records variant를 하나만 선언할 수 있습니다")
+		}
+		recordsFound = true
+		validateRecordsVariant(errors, addError, variantPrefix, variant)
+	}
+}
+
+func validateRecordsVariant(
+	errors *[]Error,
+	addError func(*[]Error, string),
+	prefix string,
+	variant sectionContentVariantSchema,
+) {
+	if variant.HeadingLevel == nil {
+		addError(errors, prefix+"의 headingLevel을 명시해야 합니다")
+	} else if *variant.HeadingLevel < 3 || *variant.HeadingLevel > 6 {
+		addError(errors, prefix+"의 headingLevel은 3 이상 6 이하여야 합니다")
+	}
+	if variant.MinItems == nil {
+		addError(errors, prefix+"의 minItems를 명시해야 합니다")
+	} else if *variant.MinItems < 1 {
+		addError(errors, prefix+"의 minItems는 1 이상이어야 합니다")
+	}
+	if variant.AdditionalFields == nil {
+		addError(errors, prefix+"의 additionalFields를 명시해야 합니다")
+	}
+	if len(variant.Fields) == 0 {
+		addError(errors, prefix+"의 fields가 비어 있습니다")
+		return
+	}
+
+	fieldNames := make(map[string]bool)
+	for _, field := range variant.Fields {
+		fieldPrefix := fmt.Sprintf("%s field '%s'", prefix, field.Name)
+		if field.Name == "" {
+			addError(errors, prefix+" field의 name이 비어 있습니다")
+			continue
+		}
+		if fieldNames[field.Name] {
+			addError(errors, fmt.Sprintf("%s field '%s'이 중복되었습니다", prefix, field.Name))
+		}
+		fieldNames[field.Name] = true
+		if field.Required == nil {
+			addError(errors, fieldPrefix+"의 required를 명시해야 합니다")
+		}
+
+		switch field.Type {
+		case "string":
+			if len(field.Values) > 0 {
+				addError(errors, fieldPrefix+"의 values는 enum type에서만 사용할 수 있습니다")
+			}
+		case "enum":
+			if len(field.Values) == 0 {
+				addError(errors, fieldPrefix+"의 values가 비어 있습니다")
+			}
+			seenValues := make(map[string]bool)
+			for _, value := range field.Values {
+				if strings.TrimSpace(value) == "" {
+					addError(errors, fieldPrefix+"의 values에 빈 값이 있습니다")
+				}
+				if seenValues[value] {
+					addError(errors, fmt.Sprintf("%s의 value '%s'이 중복되었습니다", fieldPrefix, value))
+				}
+				seenValues[value] = true
+			}
+		default:
+			addError(errors, fmt.Sprintf("%s의 type '%s'을 지원하지 않습니다", fieldPrefix, field.Type))
+		}
+	}
 }
 
 func isSupportedFieldType(value string) bool {

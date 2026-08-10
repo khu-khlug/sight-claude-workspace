@@ -1,0 +1,75 @@
+version: 1
+type: frontend
+
+frontmatter:
+  additionalFields: false
+  fields:
+    - name: type
+      type: string
+      required: true
+      const: frontend
+
+sections:
+  - name: 작업 개요
+    required: true
+  - name: 사용자와 목표
+    required: true
+  - name: 사용자 경험 계약
+    required: true
+  - name: 허용 및 제한 정책
+    required: true
+    content:
+      oneOf:
+        - literal: 정책 변경 없음
+        - type: records
+          headingLevel: 3
+          minItems: 1
+          additionalFields: false
+          fields:
+            - name: 주체
+              type: string
+              required: true
+            - name: 조건
+              type: string
+              required: true
+            - name: 행동
+              type: string
+              required: true
+            - name: 판정
+              type: enum
+              required: true
+              values:
+                - "허용"
+                - "금지"
+                - "조건부 허용"
+            - name: 허용 예외
+              type: string
+              required: true
+            - name: 사용자에게 보이는 처리
+              type: string
+              required: true
+            - name: 보장 계층
+              type: enum
+              required: true
+              values:
+                - "Frontend"
+                - "Frontend와 Backend"
+            - name: 안내 및 회복
+              type: string
+              required: true
+  - name: 입력 및 복구
+    required: true
+  - name: 데이터 및 연동
+    required: true
+  - name: 사용자 보호 및 개인정보
+    required: true
+  - name: 접근성 및 사용 환경
+    required: true
+  - name: 호환성 및 전환
+    required: true
+  - name: 검증
+    required: true
+  - name: 비목표
+    required: true
+
+additionalSections: true
