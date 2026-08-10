@@ -164,6 +164,11 @@ func lintDocument(
 					Line:    matches[0].Line,
 					Message: fmt.Sprintf("섹션 '%s'의 내용이 비어 있습니다", expected.Name),
 				})
+			} else if expected.Content != nil {
+				errors = append(
+					errors,
+					lintSectionContent(relativePath, matches[0], *expected.Content)...,
+				)
 			}
 		default:
 			for _, duplicate := range matches[1:] {

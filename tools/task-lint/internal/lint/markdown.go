@@ -8,9 +8,10 @@ import (
 )
 
 type section struct {
-	Name    string
-	Line    int
-	Content string
+	Name       string
+	Line       int
+	Content    string
+	RawContent string
 }
 
 type fence struct {
@@ -49,7 +50,8 @@ func parseSections(path string) ([]section, error) {
 		if current == nil {
 			return
 		}
-		current.Content = strings.TrimSpace(strings.Join(content, "\n"))
+		current.RawContent = strings.Join(content, "\n")
+		current.Content = strings.TrimSpace(current.RawContent)
 		sections = append(sections, *current)
 		current = nil
 		content = nil
