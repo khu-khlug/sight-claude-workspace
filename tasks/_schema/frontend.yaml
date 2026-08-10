@@ -65,8 +65,6 @@ sections:
     required: true
   - name: 접근성 및 사용 환경
     required: true
-  - name: 호환성 및 전환
-    required: true
   - name: 검증
     required: true
   - name: 비목표
