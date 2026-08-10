@@ -16,7 +16,6 @@ type: backend
 
 - 문자 발송을 시작할 수 있는 주체는 운영진이다.
 - 회원 수신자는 사이트에서 현재 회원으로 관리되고 있는 회원 중 교류 회원이 아닌 회원으로 제한한다.
-- 정지 상태 회원은 회원으로 관리되고 있는 경우 수신자로 지정할 수 있다.
 - 회원 수신자의 전화번호가 없으면 해당 회원에게 발송하지 않는다.
 - 회원이 아닌 수신자는 숫자 이외의 문자를 제거한 전화번호를 직접 지정할 수 있다.
 - 직접 지정 전화번호는 쉼표로 구분하며, 비어 있거나 전화번호로 해석할 수 없는 값은 발송 대상에서 제외한다.
@@ -36,30 +35,24 @@ type: backend
 
 ### 변경 사항
 
-#### `GET /manager/sms`
+#### 기존 회원 조회 API 유지
 
+- 회원 수신자 조회에는 기존 `GET /manager/users`를 사용한다.
+- 운영진 인증과 회원 목록의 공통 기본 조건은 기존 API 계약을 유지한다.
+- `name`, `limit`, `offset` query parameter로 이름 검색과 페이지네이션을 수행한다.
+- 기존 응답의 `users[].id`, `users[].name`, `users[].profile.college`, `users[].admission`, `users[].status`, `users[].profile.phone`을 문자 발송 화면에서 사용한다.
+- 기존 회원 조회 API에 문자 발송 화면 전용 응답 형식이나 `/manager/sms` query parameter를 추가하지 않는다.
+
+#### `GET /manager/sender-phone`
+
+- 현재 동아리 공식 발신번호를 반환한다.
 - 운영진만 요청할 수 있다.
-- 문자 발송 화면에 필요한 공식 발신번호와 회원 수신자 목록을 반환한다.
-- 응답에는 현재 회원으로 관리되고 있으며 교류 회원이 아닌 회원만 포함한다.
-- 회원 항목은 `id`, `realname`, `college`, `admission`, `active`, `phone`을 포함한다.
-- 회원 전화번호는 발송 화면에서 수신자 확인에 사용할 수 있도록 반환하되, 운영진 외에는 반환하지 않는다.
-- 목록의 기본 정렬은 `realname` 오름차순으로 한다.
-- 회원 수가 100개를 초과할 수 있으므로 `offset`, `limit` query parameter를 사용한다. `limit`의 최대값은 100이다.
-- 응답 예시는 다음과 같은 의미를 가진다.
 
-| field | type | required | 의미 |
+| response field | type | required | 의미 |
 | --- | --- | --- | --- |
-| `senderPhone` | string | yes | 현재 동아리 공식 발신번호 |
-| `members` | array | yes | 문자 발송 대상으로 조회된 회원 목록 |
-| `members[].id` | number | yes | 회원 식별자 |
-| `members[].realname` | string | yes | 회원 이름 |
-| `members[].college` | string | yes | 회원 소속 |
-| `members[].admission` | string | yes | 회원 입회 정보 |
-| `members[].active` | number | yes | 회원 활동·접속 상태 |
-| `members[].phone` | string or null | yes | 회원 전화번호 |
-| `count` | number | yes | 전체 회원 수 |
+| `phone` | string | yes | 현재 동아리 공식 발신번호 |
 
-#### `PUT /manager/sms/sender-phone`
+#### `PUT /manager/sender-phone`
 
 - 운영진만 요청할 수 있다.
 - request body의 `phone`을 동아리 공식 발신번호로 저장한다.
@@ -72,7 +65,7 @@ type: backend
 | --- | --- | --- | --- | --- |
 | `phone` | string | yes | no | 동아리 공식 발신번호 |
 
-#### `POST /manager/sms`
+#### `POST /manager/sms-messages`
 
 - 운영진만 요청할 수 있다.
 - request body의 `memberIds`와 `additionalPhoneNumbers`를 합쳐 수신자 목록을 만든다.
@@ -107,13 +100,13 @@ type: backend
 | `results[].message` | string or null | yes | 실패 시 사용자에게 표시할 한국어 오류 메시지 |
 
 - 요청 재시도 시 동일한 문자 메시지가 중복 발송될 수 있으므로, 별도의 멱등성 보장은 하지 않는다.
-- 기존 API를 변경하지 않으며 새 운영진 API를 추가한다.
+- 기존 회원 조회 API를 변경하지 않으며 문자 메시지 발송 리소스를 새로 추가한다.
 
 ## 데이터베이스 계약
 
 - 회원의 기존 `phone`, 회원 상태 및 교류 회원 분류를 사용한다.
 - 회원 테이블의 기존 데이터 구조는 변경하지 않는다.
-- 동아리 공식 발신번호를 저장할 위치는 사람의 결정 필요 항목에서 확정한다.
+- 동아리 공식 발신번호는 기존 `system_config` 설정 저장소에 저장한다.
 - 문자 발송 이력 테이블과 이력 backfill은 이번 작업에 포함하지 않는다.
 - 회원 조회에 필요한 인덱스 변경은 구현 중 실제 실행 계획을 확인한 뒤 필요할 때만 별도 제안한다.
 - 데이터베이스 변경이 발생하는 경우 구버전 애플리케이션과 신버전 애플리케이션이 함께 실행되는 배포 순서를 Task에 반영한다.
@@ -161,7 +154,6 @@ type: backend
 
 - 운영진이 문자 발송 화면에 접근할 수 있고 비운영진은 `403 Forbidden`을 받는지 확인한다.
 - 회원 목록에 현재 회원으로 관리되는 회원과 교류 회원 제외 조건이 정확히 적용되는지 확인한다.
-- 정지 상태 회원이 정책에 따라 수신자로 선택되고 발송되는지 확인한다.
 - 회원 전화번호가 없는 회원에게는 외부 발송이 수행되지 않는지 확인한다.
 - 직접 지정 전화번호의 하이픈·공백·괄호가 제거되고 유효하지 않은 값이 거부되는지 확인한다.
 - 메시지가 빈 문자열일 때 `400 Bad Request`가 반환되는지 확인한다.
@@ -177,13 +169,13 @@ type: backend
 
 ## 사람의 결정 필요
 
-### 공식 발신번호 저장 위치
+### 공식 발신번호 설정 key
 
-- 질문: 동아리 공식 발신번호를 어디에 저장할 것인가?
+- 질문: 기존 `system_config`에 저장할 공식 발신번호 설정 key를 무엇으로 할 것인가?
 - 선택지:
-  - 기존 설정 또는 공용 설정 저장소에 저장한다. 별도 문자 전용 테이블을 만들지 않아 migration 범위를 줄일 수 있다.
-  - 문자 발송 전용 설정 테이블을 만든다. 문자 기능의 설정을 독립적으로 관리할 수 있지만 schema와 migration이 추가된다.
-- 권장안: 기존 공용 설정 저장소에 저장한다. 공식 발신번호는 문자 발송 외 도메인의 독립적인 생명주기를 가지지 않으므로 전용 테이블을 추가하지 않는 편이 적절하다.
+  - `SMS_SENDER_PHONE`처럼 문자 발송 목적을 나타내는 새 `ConfigKey`를 추가한다. 설정의 의미가 명확하다.
+  - 기존 설정 key를 재사용한다. 추가 schema 변경은 없지만 설정 의미가 불명확해질 수 있다.
+- 권장안: `SMS_SENDER_PHONE`처럼 문자 발송 목적을 나타내는 새 `ConfigKey`를 추가한다. 기존 `system_config` 저장소를 사용하면서도 설정의 책임과 이름을 명확히 할 수 있다.
 
 ### 부분 실패 응답과 재시도
 
@@ -197,7 +189,7 @@ type: backend
 
 - 내부 controller, service, domain 및 repository의 class·method·variable 이름은 저장소 규칙에 맞게 정한다.
 - 내부 DTO 파일 위치와 외부 서비스 client 추상화 방식은 기존 백엔드 구조에 맞게 정한다.
-- 회원 목록 API를 새로 구현할지 기존 회원 조회 기능을 재사용할지는 동일한 계약과 권한을 만족하는 범위에서 정한다.
+- 회원 목록은 기존 `GET /manager/users`를 재사용하며, 문자 발송 전용 회원 조회 API를 추가하지 않는다.
 - 바이트 계산은 서버가 최종 메시지를 기준으로 수행하며, 클라이언트의 계산 결과를 계약으로 취급하지 않는다.
 - 외부 서비스 호출을 개별 호출 또는 제공되는 batch API로 구현할 수 있으나 수신자별 결과와 부분 실패 의미는 유지한다.
 - 추가 제한 없음.
