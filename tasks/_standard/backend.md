@@ -120,6 +120,10 @@ API마다 다음 내용을 작성한다.
 - 기존 API와의 호환성
 - 특정 화면이 아닌 다른 consumer에서도 같은 리소스 계약으로 사용할 수 있는지
 
+공통으로 재사용하는 resource representation은 field를 문장이나 목록으로만 나열하지 않고 `json` fenced code block의 예시로 작성한다. 예시에는 field 이름, type에 해당하는 값, 중첩 구조와 배열 항목을 포함한다. 식별자·시각 형식처럼 여러 representation에 공통으로 적용하는 규칙은 예시 밖의 문장으로 함께 설명한다.
+
+각 endpoint는 `### METHOD /path` 형식의 제목으로 작성한다. path parameter, query string, request header, request body 및 response body의 field는 항목별 bullet list로 작성한다. 인증·인가, 성공·오류 status, 상태 변화, 멱등성 및 재시도처럼 field가 아닌 계약은 일반 문장으로 작성한다.
+
 해당하지 않거나 변경이 없다면 `변경 없음`을 작성한다.
 
 ### 4. 데이터베이스 계약
@@ -135,6 +139,8 @@ API마다 다음 내용을 작성한다.
 - 대상 데이터 규모와 lock 또는 성능 위험
 - 구버전과 신버전 application의 동시 실행 호환성
 - rollback 가능 여부와 방법
+
+추가하거나 변경하는 table의 column, primary key, foreign key 및 table 관계는 `mermaid` fenced code block의 `erDiagram`으로 작성한다. type, 길이, nullable 여부, index, unique·check constraint, 제한된 저장값, 삭제 정책과 migration처럼 diagram만으로 충분히 표현할 수 없는 계약은 diagram 뒤의 bullet list 또는 일반 문장으로 작성한다.
 
 해당하지 않거나 변경이 없다면 `변경 없음`을 작성한다.
 
