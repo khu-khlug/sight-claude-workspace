@@ -14,7 +14,7 @@ type: backend
 - 지원 신청의 신청자는 첫 댓글이 아직 없을 때만 제목, 내용 및 카테고리를 변경할 수 있다. 운영진은 첫 댓글의 존재와 관계없이 모든 지원 신청을 삭제할 수 있다.
 - `USER` 또는 `MANAGER` 역할의 모든 회원은 모든 지원 신청과 댓글을 열람할 수 있다.
 - 지원 신청의 신청자는 자신의 지원 신청에, 운영진은 모든 지원 신청에 댓글을 작성할 수 있다. 댓글의 생성은 승인, 반려 또는 완료 상태를 만들지 않는다.
-- 지원 신청이 생성되면 모든 운영진에게 사이트 내 알림을 만들고 Discord 운영 알림 채널에 등록 사실을 전송한다.
+- 지원 신청이 생성되면 모든 운영진에게 사이트 내 알림을 만들고 Discord 시스템 알림 Webhook에 등록 사실을 전송한다.
 - 댓글이 생성되면 모든 운영진과 신청자에게 사이트 내 알림을 만든다. 신청자가 운영진인 경우에도 해당 신청자에게는 알림을 한 건만 만든다. 운영진이 작성한 댓글이면 신청자가 Discord 연동 상태일 때만 Discord DM을 전송한다.
 - 사이트 내 알림 또는 Discord 전송이 실패해도 생성된 지원 신청이나 댓글은 취소하지 않는다.
 - 지원 신청 또는 댓글 생성 요청은 멱등하게 처리하지 않는다. 같은 내용의 요청이 반복되면 요청마다 별도의 지원 신청 또는 댓글을 생성하고, 각 생성에 따른 사이트 내 알림과 Discord 전송을 각각 수행한다.
@@ -188,15 +188,15 @@ erDiagram
 
 ## 외부 시스템 계약
 
-- Discord Bot API를 사용해 `discord.channels.support-request-alert` 설정값(`DISCORD_SUPPORT_REQUEST_ALERT_CHANNEL_ID`)의 text channel에 지원 신청 등록 사실을 전송한다. payload에는 지원 신청 ID, 카테고리, 제목과 신청자 표시 이름을 포함하고 본문 전체는 포함하지 않는다.
+- Discord Incoming Webhook을 사용해 `discord.webhook.system-alert-url` 설정값(`SYSTEM_ALERT_DISCORD_WEBHOOK`)에 지원 신청 등록 사실을 전송한다. payload에는 지원 신청 ID, 카테고리, 제목과 신청자 표시 이름을 포함하고 본문 전체는 포함하지 않는다.
 - 운영진 댓글의 Discord DM은 `discord_integration`에 저장된 신청자의 Discord user ID로 전송한다. payload에는 지원 신청 ID, 제목 및 댓글 작성자 표시 이름을 포함하고 댓글 본문 전체는 포함하지 않는다.
-- Discord Bot token은 기존 `DISCORD_BOT_TOKEN`을 사용한다. 운영 알림 채널 설정이 비어 있으면 해당 전송을 건너뛰고, 채널 또는 DM 전송이 실패하면 error log를 남긴다. 어느 경우에도 HTTP 응답과 DB transaction을 실패시키지 않는다.
-- Discord API는 timeout을 두고 자동 재시도하지 않는다. 반복된 생성 요청마다 별도의 Discord 전송을 시도한다.
+- 운영진 댓글 DM에는 기존 `DISCORD_BOT_TOKEN`을 사용한다. 시스템 알림 Webhook URL이 비어 있으면 지원 신청 등록 전송을 건너뛰고, Webhook 또는 DM 전송이 실패하면 error log를 남긴다. 어느 경우에도 HTTP 응답과 DB transaction을 실패시키지 않는다.
+- Discord Webhook과 Bot API 호출은 timeout을 두고 자동 재시도하지 않는다. 반복된 생성 요청마다 별도의 Discord 전송을 시도한다.
 
 ## 보안 및 개인정보
 
 - 모든 API는 인증이 필요하다. 목록과 상세 조회는 모든 인증 회원에게 허용하고, 댓글 작성은 신청자 또는 운영진으로, 수정은 첫 댓글이 없는 신청자로, 삭제는 첫 댓글의 존재와 관계없이 운영진으로 서버에서 강제한다.
-- 지원 신청 제목과 내용, 댓글은 동아리 운영 관련 정보이므로 인증되지 않은 사람이나 Discord 운영 알림 채널 이외의 외부 대상에게 반환하거나 전달하지 않는다.
+- 지원 신청 제목과 내용, 댓글은 동아리 운영 관련 정보이므로 인증되지 않은 사람이나 Discord 시스템 알림 Webhook 이외의 외부 대상에게 반환하거나 전달하지 않는다.
 - Discord 운영 알림과 DM에는 요청·댓글 본문을 넣지 않는다. Discord user ID, 요청 내용 및 댓글 본문을 application log, metric, tracing attribute에 기록하지 않는다.
 - Discord DM은 연동된 신청자에게만 보내며, 연동되지 않은 회원을 위해 Discord ID를 추정하거나 새 연동을 만들지 않는다.
 
@@ -207,16 +207,16 @@ erDiagram
 
 ## 호환성 및 배포
 
-- 새 API와 새 table은 기존 API를 변경하지 않는다. `sight-frontend`의 지원 신청 화면은 Backend 배포와 `DISCORD_SUPPORT_REQUEST_ALERT_CHANNEL_ID` 설정 후 공개한다.
-- Discord 운영 알림 채널 설정 또는 Bot 권한이 준비되지 않은 환경에서도 API는 동작하지만 Discord 알림만 생략된다.
+- 새 API와 새 table은 기존 API를 변경하지 않는다. `sight-frontend`의 지원 신청 화면은 Backend 배포와 `SYSTEM_ALERT_DISCORD_WEBHOOK` 설정 후 공개한다.
+- 시스템 알림 Webhook URL 또는 Bot 권한이 준비되지 않은 환경에서도 API는 동작하지만 해당 Discord 알림만 생략된다.
 
 ## 검증
 
-- 인증 회원과 운영진이 각 카테고리로 지원 신청을 생성하면 `201` 응답의 `requester`가 등록한 회원을 가리키고, 운영진 사이트 내 알림과 Discord 운영 채널 전송이 발생하는지 controller·service integration test로 확인한다.
+- 인증 회원과 운영진이 각 카테고리로 지원 신청을 생성하면 `201` 응답의 `requester`가 등록한 회원을 가리키고, 운영진 사이트 내 알림과 Discord 시스템 알림 Webhook 전송이 발생하는지 controller·service integration test로 확인한다.
 - 일반 회원과 운영진의 목록에 모든 신청이 생성 시각 내림차순으로 반환되고, 일반 회원도 다른 회원의 상세와 댓글을 조회할 수 있는지 확인한다.
 - 첫 댓글 전 신청자는 수정할 수 있고, 운영진은 댓글 유무와 관계없이 다른 회원의 신청과 댓글을 함께 삭제할 수 있으며, 첫 댓글 생성과 동시에 신청자 수정 요청이 `409`가 되는지 동시 요청을 포함한 service test로 확인한다.
 - 일반 회원이 자신의 지원 신청에 댓글을 생성하면 신청자 사이트 내 알림이 생성되고, 다른 회원의 지원 신청에 대한 댓글 요청은 `403`으로 거절되며, 운영진 댓글 생성 시에도 신청자 사이트 내 알림·연동된 경우의 DM 전송을 확인한다.
-- 미연동 신청자, Discord DM 차단, 운영 알림 채널 누락, Discord API timeout·실패에서 지원 신청·댓글이 성공적으로 남고 HTTP 성공 응답이 유지되는지 확인한다.
+- 미연동 신청자, Discord DM 차단, 시스템 알림 Webhook URL 누락, Discord Webhook 또는 Bot API timeout·실패에서 지원 신청·댓글이 성공적으로 남고 HTTP 성공 응답이 유지되는지 확인한다.
 - 빈 값, 허용되지 않은 카테고리, 잘못된 pagination에 `400`이 반환되고, 같은 생성 요청의 반복마다 별도 지원 신청 또는 댓글과 해당 알림이 생성되는지 확인한다.
 - 새 table migration을 빈 DB에 적용해 필요한 table과 constraint가 생성되는지 확인한다.
 
